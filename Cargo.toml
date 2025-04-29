@@ -12,9 +12,12 @@ repository = "https://github.com/blockworks-foundation/geyser-grpc-connector"
 # note: as timewriting there are versions 3.0.0 and 4.0.0; we will come back to that later
 yellowstone-grpc-client = { version = "5.0.0", git = "https://github.com/rpcpool/yellowstone-grpc.git", tag = "v5.0.1+solana.2.1.11" }
 yellowstone-grpc-proto = { version = "5.0.0", git = "https://github.com/rpcpool/yellowstone-grpc.git", tag = "v5.0.1+solana.2.1.11" }
+#raydium_amm = { git = "https://github.com/raydium-io/raydium-amm.git", default-features = false, features = ["no-entrypoint"], branch = "upgrade_solana_2.1.0" }
 
 # required for CommitmentConfig
 solana-sdk = "~2.1.11"
+solana-rpc-client = "~2.1.11"
+solana-rpc-client-api = "~2.1.11"
 
 url = "2.5.0"
 async-stream = "0.3.5"
