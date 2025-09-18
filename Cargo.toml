@@ -86,3 +86,5 @@ collapsible_if = "allow"
 missing_const_for_fn = "deny"
 # prefer `copy` over reference for small types
 trivially_copy_pass_by_ref = "deny"
+# allow if-else chains for clarity
+comparison_chain = "allow"
