@@ -62,3 +62,27 @@ regex = "1.10.4"
 clap = { version = "4.2", features = ["derive"] }
 
 # patch curve25519-dalek is gone
+
+[lints.clippy]
+# should make procedural code more readable
+needless_return = "allow"
+# allow explicit testing
+bool_assert_comparison = "allow"
+# allow `len() checks`
+len_zero = "allow"
+# allow to use `match` to make code look consistent
+single_match = "allow"
+# allow use of base struct; needed for forward compatibility
+needless_update = "allow"
+# allow explict impl of `Default` trait
+derivable_impls = "allow"
+# allow +1 comparison
+int_plus_one = "allow"
+# allow structured `if`
+collapsible_if = "allow"
+# force use of `Arc::clone(p)` for clarity
+#clone_on_ref_ptr = "deny"
+# ensures that `const` is used where possible
+missing_const_for_fn = "deny"
+# prefer `copy` over reference for small types
+trivially_copy_pass_by_ref = "deny"

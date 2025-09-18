@@ -5,7 +5,7 @@
 //
 
 use itertools::Itertools;
-use log::{info, trace};
+use log::info;
 use solana_account_decoder::parse_token::spl_token_ids;
 use solana_clock::Slot;
 use solana_clock::UnixTimestamp;
