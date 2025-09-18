@@ -3,8 +3,7 @@ use std::fmt::{Debug, Display};
 use std::sync::atomic::AtomicU64;
 use std::sync::Arc;
 use std::time::Duration;
-
-use solana_sdk::commitment_config::CommitmentConfig;
+use solana_commitment_config::CommitmentConfig;
 use tonic::codec::CompressionEncoding;
 use yellowstone_grpc_proto::geyser::{
     CommitmentLevel, SubscribeRequest, SubscribeRequestFilterAccounts,
@@ -199,8 +198,8 @@ impl GeyserFilter {
 pub fn map_commitment_level(commitment_config: CommitmentConfig) -> CommitmentLevel {
     // solana_sdk -> yellowstone
     match commitment_config.commitment {
-        solana_sdk::commitment_config::CommitmentLevel::Processed => CommitmentLevel::Processed,
-        solana_sdk::commitment_config::CommitmentLevel::Confirmed => CommitmentLevel::Confirmed,
-        solana_sdk::commitment_config::CommitmentLevel::Finalized => CommitmentLevel::Finalized,
+        solana_commitment_config::CommitmentLevel::Processed => CommitmentLevel::Processed,
+        solana_commitment_config::CommitmentLevel::Confirmed => CommitmentLevel::Confirmed,
+        solana_commitment_config::CommitmentLevel::Finalized => CommitmentLevel::Finalized,
     }
 }

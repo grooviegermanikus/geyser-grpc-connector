@@ -4,7 +4,7 @@ use async_stream::stream;
 use futures::{Stream, StreamExt};
 use log::{info, warn};
 use merge_streams::MergeStreams;
-use solana_sdk::clock::Slot;
+use solana_clock::Slot;
 use yellowstone_grpc_proto::geyser::SubscribeUpdate;
 
 pub trait FromYellowstoneExtractor {

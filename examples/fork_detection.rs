@@ -1,14 +1,14 @@
 use clap::Parser;
 use log::{info, warn};
-use solana_sdk::commitment_config::{CommitmentConfig, CommitmentLevel as solanaCL, CommitmentLevel};
+use solana_commitment_config::{CommitmentConfig, CommitmentLevel as solanaCL, CommitmentLevel};
 use yellowstone_grpc_proto::geyser::{CommitmentLevel as yCL, SubscribeUpdateSlot};
 use std::collections::{HashMap, HashSet};
 use std::env;
 use std::str::FromStr;
 use std::time::Duration;
 use anyhow::{anyhow, Context};
-use solana_sdk::clock::Slot;
-use solana_sdk::signature::Signature;
+use solana_clock::Slot;
+use solana_signature::Signature;
 use tokio::sync::broadcast;
 use tokio::time::Instant;
 use tonic::transport::ClientTlsConfig;
