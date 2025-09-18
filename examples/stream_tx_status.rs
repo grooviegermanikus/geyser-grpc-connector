@@ -1,13 +1,13 @@
 use clap::Parser;
 use log::info;
-use solana_sdk::commitment_config::{CommitmentConfig, CommitmentLevel};
+use solana_commitment_config::{CommitmentConfig, CommitmentLevel};
 use std::collections::HashMap;
 use std::env;
 use std::str::FromStr;
 use std::time::Duration;
 use anyhow::Context;
-use solana_sdk::clock::Slot;
-use solana_sdk::signature::Signature;
+use solana_clock::Slot;
+use solana_signature::Signature;
 use tokio::sync::broadcast;
 use tokio::time::Instant;
 use tonic::transport::ClientTlsConfig;

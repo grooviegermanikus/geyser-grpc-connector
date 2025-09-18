@@ -5,6 +5,12 @@ use base64::Engine;
 use futures::{Stream, StreamExt};
 use itertools::Itertools;
 use log::info;
+use solana_clock::Slot;
+use solana_commitment_config::CommitmentConfig;
+use solana_hash::Hash;
+use solana_message::compiled_instruction::CompiledInstruction;
+use solana_message::v0::MessageAddressTableLookup;
+use solana_pubkey::Pubkey;
 use solana_sdk::clock::Slot;
 use solana_sdk::commitment_config::CommitmentConfig;
 use solana_sdk::compute_budget::ComputeBudgetInstruction;
@@ -17,12 +23,10 @@ use solana_sdk::signature::Signature;
 use solana_sdk::transaction::TransactionError;
 /// This file mocks the core model of the RPC server.
 use solana_sdk::{borsh1, compute_budget};
-use solana_sdk::blake3::HASH_BYTES;
 use tokio::time::{sleep, Duration};
 use yellowstone_grpc_proto::geyser::subscribe_update::UpdateOneof;
 use yellowstone_grpc_proto::geyser::SubscribeUpdate;
 use yellowstone_grpc_proto::geyser::SubscribeUpdateBlock;
-
 use geyser_grpc_connector::grpc_subscription_autoreconnect_streams::create_geyser_reconnecting_stream;
 use geyser_grpc_connector::grpcmultiplex_fastestwins::{
     create_multiplexed_stream, FromYellowstoneExtractor,
@@ -261,7 +265,7 @@ pub fn map_produced_block(
                         Pubkey::new_from_array(bytes)
                     })
                     .collect(),
-                recent_blockhash: Hash::new_from_array(<[u8; HASH_BYTES]>::try_from(message.recent_blockhash.as_slice()).unwrap()),
+                recent_blockhash: Hash::new_from_array(message.recent_blockhash.as_slice().try_into().unwrap()),
                 instructions: message
                     .instructions
                     .into_iter()

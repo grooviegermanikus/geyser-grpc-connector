@@ -246,8 +246,8 @@ fn start_tracking_account_consumer(
                             );
 
                             if let Some(prev_data) = last_account_data {
-                                let hash1 = hash(&prev_data);
-                                let hash2 = hash(&account_info.data);
+                                let hash1 = Hash::new_from_array(prev_data.as_slice().try_into().unwrap());
+                                let hash2 = Hash::new_from_array(account_info.data.as_slice().try_into().unwrap());
                                 info!("diff: {} {}", hash1, hash2);
 
                                 delta_compress(&prev_data, &account_info.data);

@@ -3,19 +3,17 @@ use std::env;
 use base64::Engine;
 use itertools::Itertools;
 use log::{info, warn};
-use solana_sdk::clock::Slot;
-use solana_sdk::commitment_config::CommitmentConfig;
-use solana_sdk::compute_budget::ComputeBudgetInstruction;
-use solana_sdk::hash::Hash;
-use solana_sdk::instruction::CompiledInstruction;
-use solana_sdk::message::v0::MessageAddressTableLookup;
-use solana_sdk::message::{v0, MessageHeader, VersionedMessage};
-use solana_sdk::pubkey::Pubkey;
-use solana_sdk::signature::Signature;
-use solana_sdk::transaction::TransactionError;
-/// This file mocks the core model of the RPC server.
-use solana_sdk::{borsh1, compute_budget};
-use solana_sdk::keccak::HASH_BYTES;
+use solana_clock::Slot;
+use solana_commitment_config::CommitmentConfig;
+use solana_compute_budget::{compute_budget};
+use solana_compute_budget_interface::ComputeBudgetInstruction;
+use solana_hash::Hash;
+use solana_message::compiled_instruction::CompiledInstruction;
+use solana_message::{v0, MessageHeader, VersionedMessage};
+use solana_message::v0::MessageAddressTableLookup;
+use solana_pubkey::Pubkey;
+use solana_signature::Signature;
+use solana_transaction::TransactionError;
 use tokio::sync::mpsc::Receiver;
 use tokio::time::{sleep, Duration};
 use yellowstone_grpc_proto::geyser::subscribe_update::UpdateOneof;
@@ -229,7 +227,7 @@ pub fn map_produced_block(
                         Pubkey::new_from_array(bytes)
                     })
                     .collect(),
-                recent_blockhash: Hash::new_from_array( <[u8; HASH_BYTES]>::try_from(message.recent_blockhash.as_slice()).unwrap()),
+                recent_blockhash: Hash::new_from_array( message.recent_blockhash.as_slice().try_into().unwrap()),
                 instructions: message
                     .instructions
                     .into_iter()
@@ -258,10 +256,10 @@ pub fn map_produced_block(
 
             let cu_requested = message.instructions().iter().find_map(|i| {
                 if i.program_id(message.static_account_keys())
-                    .eq(&compute_budget::id())
+                    .eq(&solana_sdk_ids::compute_budget::id())
                 {
                     if let Ok(ComputeBudgetInstruction::SetComputeUnitLimit(limit)) =
-                        borsh1::try_from_slice_unchecked(i.data.as_slice())
+                        solana_borsh::v1::try_from_slice_unchecked(i.data.as_slice())
                     {
                         return Some(limit);
                     }
@@ -271,10 +269,10 @@ pub fn map_produced_block(
 
             let prioritization_fees = message.instructions().iter().find_map(|i| {
                 if i.program_id(message.static_account_keys())
-                    .eq(&compute_budget::id())
+                    .eq(&solana_sdk_ids::compute_budget::id())
                 {
                     if let Ok(ComputeBudgetInstruction::SetComputeUnitPrice(price)) =
-                        borsh1::try_from_slice_unchecked(i.data.as_slice())
+                        solana_borsh::v1::try_from_slice_unchecked(i.data.as_slice())
                     {
                         return Some(price);
                     }

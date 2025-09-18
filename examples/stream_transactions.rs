@@ -6,8 +6,8 @@
 
 use log::{info, trace};
 use solana_account_decoder::parse_token::spl_token_ids;
-use solana_sdk::clock::{Slot, UnixTimestamp};
-use solana_sdk::pubkey::Pubkey;
+use solana_clock::{UnixTimestamp};
+use solana_pubkey::Pubkey;
 use std::collections::{HashMap, HashSet};
 use std::env;
 use std::str::FromStr;
@@ -17,8 +17,6 @@ use std::time::{Instant, SystemTime, UNIX_EPOCH};
 use itertools::Itertools;
 use solana_clock::Slot;
 use solana_commitment_config::CommitmentLevel;
-use solana_sdk::bs58;
-use solana_sdk::commitment_config::CommitmentLevel;
 use tokio::sync::mpsc::{Receiver, Sender};
 
 use geyser_grpc_connector::grpc_subscription_autoreconnect_tasks::create_geyser_autoconnection_task_with_mpsc;
