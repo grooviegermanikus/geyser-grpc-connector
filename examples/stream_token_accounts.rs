@@ -2,19 +2,19 @@ use dashmap::DashMap;
 use log::{debug, info, trace};
 #[allow(deprecated)]
 use solana_account_decoder::parse_token::{
-    parse_token, spl_token_ids, TokenAccountType, UiTokenAccount,
+    spl_token_ids, TokenAccountType, UiTokenAccount,
 };
-use solana_sdk::clock::{Clock, Slot};
-use solana_sdk::commitment_config::CommitmentConfig;
-use solana_sdk::pubkey::Pubkey;
-use solana_sdk::sysvar::clock;
+use solana_clock::{Clock, Slot};
+use solana_commitment_config::CommitmentConfig;
+use solana_pubkey::Pubkey;
 use std::collections::hash_map::Entry;
 use std::collections::HashMap;
 use std::env;
 use std::str::FromStr;
 use std::sync::Arc;
 use std::time::Instant;
-
+use solana_account_decoder::parse_account_data::SplTokenAdditionalDataV2;
+use solana_account_decoder::parse_token::parse_token_v3;
 use geyser_grpc_connector::grpc_subscription_autoreconnect_tasks::create_geyser_autoconnection_task_with_mpsc;
 use geyser_grpc_connector::{
     map_commitment_level, GrpcConnectionTimeouts, GrpcSourceConfig, Message,
@@ -106,7 +106,7 @@ pub async fn main() {
                                 account.data.len()
                             );
 
-                            if clock::id() == account_pk {
+                            if solana_clock::sysvar::id() == account_pk {
                                 let clock: Clock = bincode::deserialize(&account.data).unwrap();
                                 info!("clock: {:#?}", clock);
                             }
@@ -142,7 +142,7 @@ pub async fn main() {
                             }
 
                             #[allow(deprecated)]
-                            match parse_token(&account.data, Some(6)) {
+                            match parse_token_v3(&account.data, Some(&SplTokenAdditionalDataV2::with_decimals(6))) {
                                 Ok(TokenAccountType::Account(account_ui)) => {
                                     // UiTokenAccount {
                                     //   mint: "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
@@ -265,7 +265,7 @@ pub fn token_accounts() -> SubscribeRequest {
         "client".to_string(),
         SubscribeRequestFilterAccounts {
             // account: vec!["4DoNfFBfF7UokCC2FQzriy7yHK6DY6NVdYpuekQ5pRgg".to_string()],
-            account: vec![clock::id().to_string()],
+            account: vec![solana_clock::sysvar::id().to_string()],
             owner: vec![],
             // spl_token_ids().iter().map(|pubkey| pubkey.to_string()).collect(),
             filters: vec![],

@@ -1,10 +1,10 @@
 use itertools::Itertools;
 use log::{debug, info};
 use solana_account_decoder::parse_token::spl_token_ids;
-use solana_sdk::clock::{Slot, UnixTimestamp};
-use solana_sdk::commitment_config::CommitmentConfig;
-use solana_sdk::hash::{hash, Hash};
-use solana_sdk::pubkey::Pubkey;
+use solana_clock::{Slot, UnixTimestamp};
+use solana_commitment_config::CommitmentConfig;
+use solana_hash::{Hash};
+use solana_pubkey::Pubkey;
 use std::cmp::min;
 use std::collections::HashMap;
 use std::env;
@@ -217,7 +217,7 @@ fn start_tracking_account_consumer(
                         let account_receive_time = get_epoch_sec();
 
                         if account_info.data.len() > 100000 {
-                            let hash = hash(&account_info.data);
+                            let hash = Hash::new_from_array(account_info.data.as_slice().try_into().unwrap());
                             // info!("got account update!!! {} - {:?} - {} bytes - {} - {}lamps",
                             //     slot, account_pk, account_info.data.len(), hash, account_info.lamports);
 

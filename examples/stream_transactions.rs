@@ -15,6 +15,8 @@ use std::sync::atomic::AtomicU64;
 use std::sync::Arc;
 use std::time::{Instant, SystemTime, UNIX_EPOCH};
 use itertools::Itertools;
+use solana_clock::Slot;
+use solana_commitment_config::CommitmentLevel;
 use solana_sdk::bs58;
 use solana_sdk::commitment_config::CommitmentLevel;
 use tokio::sync::mpsc::{Receiver, Sender};
@@ -212,8 +214,8 @@ fn filter_transactions_finalized() -> SubscribeRequest {
 
 fn map_slot_status(
     slot_update: &SubscribeUpdateSlot,
-) -> solana_sdk::commitment_config::CommitmentLevel {
-    use solana_sdk::commitment_config::CommitmentLevel as solanaCL;
+) -> solana_commitment_config::CommitmentLevel {
+    use solana_commitment_config::CommitmentLevel as solanaCL;
     use yellowstone_grpc_proto::geyser::CommitmentLevel as yCL;
     yellowstone_grpc_proto::geyser::CommitmentLevel::try_from(slot_update.status)
         .map(|v| match v {
