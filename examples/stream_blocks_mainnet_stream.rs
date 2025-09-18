@@ -5,24 +5,17 @@ use base64::Engine;
 use futures::{Stream, StreamExt};
 use itertools::Itertools;
 use log::info;
-use solana_clock::Slot;
 use solana_commitment_config::CommitmentConfig;
 use solana_hash::Hash;
 use solana_message::compiled_instruction::CompiledInstruction;
+use solana_clock::Slot;
+use solana_compute_budget_interface::ComputeBudgetInstruction;
 use solana_message::v0::MessageAddressTableLookup;
+use solana_message::{v0, MessageHeader, VersionedMessage};
 use solana_pubkey::Pubkey;
-use solana_sdk::clock::Slot;
-use solana_sdk::commitment_config::CommitmentConfig;
-use solana_sdk::compute_budget::ComputeBudgetInstruction;
-use solana_sdk::hash::Hash;
-use solana_sdk::instruction::CompiledInstruction;
-use solana_sdk::message::v0::MessageAddressTableLookup;
-use solana_sdk::message::{v0, MessageHeader, VersionedMessage};
-use solana_sdk::pubkey::Pubkey;
-use solana_sdk::signature::Signature;
-use solana_sdk::transaction::TransactionError;
+use solana_signature::Signature;
+use solana_transaction::TransactionError;
 /// This file mocks the core model of the RPC server.
-use solana_sdk::{borsh1, compute_budget};
 use tokio::time::{sleep, Duration};
 use yellowstone_grpc_proto::geyser::subscribe_update::UpdateOneof;
 use yellowstone_grpc_proto::geyser::SubscribeUpdate;
@@ -294,10 +287,10 @@ pub fn map_produced_block(
 
             let cu_requested = message.instructions().iter().find_map(|i| {
                 if i.program_id(message.static_account_keys())
-                    .eq(&compute_budget::id())
+                    .eq(&solana_sdk_ids::compute_budget::id())
                 {
                     if let Ok(ComputeBudgetInstruction::SetComputeUnitLimit(limit)) =
-                        borsh1::try_from_slice_unchecked(i.data.as_slice())
+                        solana_borsh::v1::try_from_slice_unchecked(i.data.as_slice())
                     {
                         return Some(limit);
                     }
@@ -307,10 +300,10 @@ pub fn map_produced_block(
 
             let prioritization_fees = message.instructions().iter().find_map(|i| {
                 if i.program_id(message.static_account_keys())
-                    .eq(&compute_budget::id())
+                    .eq(&solana_sdk_ids::compute_budget::id())
                 {
                     if let Ok(ComputeBudgetInstruction::SetComputeUnitPrice(price)) =
-                        borsh1::try_from_slice_unchecked(i.data.as_slice())
+                        solana_borsh::v1::try_from_slice_unchecked(i.data.as_slice())
                     {
                         return Some(price);
                     }

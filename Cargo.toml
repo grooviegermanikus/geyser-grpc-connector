@@ -47,6 +47,9 @@ solana-compute-budget = "3"
 solana-compute-budget-interface = { version = "3", features = ["borsh"] }
 solana-sdk-ids = "3"
 solana-borsh = "3"
+solana-bincode = "3"
+solana-vote = "3"
+solana-vote-interface = "3"
 
 bs58 = "0.5.1"
 base64 = "0.21.5"

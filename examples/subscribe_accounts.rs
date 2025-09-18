@@ -6,8 +6,8 @@
 
 use log::info;
 use solana_account_decoder::parse_token::spl_token_ids;
-use solana_sdk::clock::UnixTimestamp;
-use solana_sdk::pubkey::Pubkey;
+use solana_clock::UnixTimestamp;
+use solana_pubkey::Pubkey;
 use std::collections::HashMap;
 use std::env;
 use std::str::FromStr;
