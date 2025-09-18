@@ -43,7 +43,10 @@ pub struct Args {
 #[tokio::main(flavor = "current_thread")]
 pub async fn main() {
     tracing_subscriber::fmt::init();
+    rustls::crypto::aws_lc_rs::default_provider()
+        .install_default().expect("tls");
 
+    
     let _args = Args::parse();
 
     let grpc_addr = env::var("GRPC_ADDR").expect("need grpc url");
