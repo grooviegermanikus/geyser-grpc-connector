@@ -1,4 +1,4 @@
-use anyhow::{anyhow, Context};
+use anyhow::anyhow;
 use clap::Parser;
 use geyser_grpc_connector::grpc_subscription_autoreconnect_tasks::create_geyser_autoconnection_task_with_mpsc;
 use geyser_grpc_connector::{
@@ -7,18 +7,15 @@ use geyser_grpc_connector::{
 use log::{info, warn};
 use solana_clock::Slot;
 use solana_commitment_config::{CommitmentConfig, CommitmentLevel as solanaCL, CommitmentLevel};
-use solana_signature::Signature;
 use std::collections::{HashMap, HashSet};
 use std::env;
-use std::str::FromStr;
 use std::time::Duration;
 use tokio::sync::broadcast;
-use tokio::time::Instant;
 use tonic::transport::ClientTlsConfig;
 use yellowstone_grpc_proto::geyser::subscribe_update::UpdateOneof;
 use yellowstone_grpc_proto::geyser::{CommitmentLevel as yCL, SubscribeUpdateSlot};
 use yellowstone_grpc_proto::geyser::{
-    SlotStatus, SubscribeRequest, SubscribeRequestFilterSlots, SubscribeRequestFilterTransactions,
+    SubscribeRequest, SubscribeRequestFilterSlots,
 };
 
 // 2025-09-09T16:12:30.236552Z  INFO fork_detection: Fork-Detection: Slot 365713185 finalized, parent=365713184

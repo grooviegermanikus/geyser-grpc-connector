@@ -1,24 +1,18 @@
-use anyhow::Context;
 use clap::Parser;
 use geyser_grpc_connector::grpc_subscription_autoreconnect_tasks::create_geyser_autoconnection_task_with_mpsc;
 use geyser_grpc_connector::{
     map_commitment_level, GrpcConnectionTimeouts, GrpcSourceConfig, Message,
 };
 use log::info;
-use solana_clock::Slot;
-use solana_commitment_config::{CommitmentConfig, CommitmentLevel};
-use solana_signature::Signature;
+use solana_commitment_config::CommitmentConfig;
 use std::collections::HashMap;
 use std::env;
-use std::str::FromStr;
 use std::time::Duration;
 use tokio::sync::broadcast;
-use tokio::time::Instant;
 use tonic::transport::ClientTlsConfig;
 use yellowstone_grpc_proto::geyser::subscribe_update::UpdateOneof;
 use yellowstone_grpc_proto::geyser::{
-    SlotStatus, SubscribeRequest, SubscribeRequestFilterAccounts, SubscribeRequestFilterSlots,
-    SubscribeRequestFilterTransactions,
+    SubscribeRequest, SubscribeRequestFilterAccounts,
 };
 use yellowstone_grpc_proto::prost::Message as ProtoMessage;
 

@@ -5,17 +5,15 @@
 //
 
 use itertools::Itertools;
-use log::{info, trace};
-use solana_account_decoder::parse_token::spl_token_ids;
-use solana_clock::{Slot, UnixTimestamp};
+use log::info;
+use solana_clock::Slot;
 use solana_pubkey::Pubkey;
 use std::collections::{HashMap, HashSet};
 use std::env;
 use std::str::FromStr;
 use std::sync::atomic::AtomicU64;
 use std::sync::Arc;
-use std::time::{Instant, SystemTime, UNIX_EPOCH};
-use tokio::sync::mpsc::{Receiver, Sender};
+use tokio::sync::mpsc::Receiver;
 
 use geyser_grpc_connector::grpc_subscription_autoreconnect_tasks::create_geyser_autoconnection_task_with_mpsc;
 use geyser_grpc_connector::{GrpcConnectionTimeouts, GrpcSourceConfig, Message};
@@ -23,9 +21,7 @@ use tokio::time::{sleep, Duration};
 use tonic::transport::ClientTlsConfig;
 use yellowstone_grpc_proto::geyser::subscribe_update::UpdateOneof;
 use yellowstone_grpc_proto::geyser::{
-    SubscribeRequest, SubscribeRequestFilterAccounts, SubscribeRequestFilterAccountsFilter,
-    SubscribeRequestFilterAccountsFilterMemcmp, SubscribeRequestFilterBlocksMeta,
-    SubscribeRequestFilterSlots, SubscribeRequestFilterTransactions,
+    SubscribeRequest, SubscribeRequestFilterTransactions,
 };
 
 type AtomicSlot = Arc<AtomicU64>;
@@ -86,7 +82,7 @@ fn start_tracking_account_consumer(
 
         let mut blacklisted_by_account: HashMap<Pubkey, u64> = HashMap::new();
 
-        let mut last_prune: Slot = 0;
+        let last_prune: Slot = 0;
         let mut last_print: Slot = 0;
 
         let blacklist: HashSet<Pubkey> = blacklist()

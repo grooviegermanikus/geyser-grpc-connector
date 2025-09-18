@@ -5,7 +5,6 @@ use itertools::Itertools;
 use log::{info, warn};
 use solana_clock::Slot;
 use solana_commitment_config::CommitmentConfig;
-use solana_compute_budget::compute_budget;
 use solana_compute_budget_interface::ComputeBudgetInstruction;
 use solana_hash::Hash;
 use solana_message::compiled_instruction::CompiledInstruction;

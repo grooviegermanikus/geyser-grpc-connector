@@ -9,10 +9,8 @@
 ///
 /// we want to see if there is a difference in timing of "processed accounts" in the mix with slot vs "only processed accounts"
 use log::{info, warn};
-use solana_commitment_config::{CommitmentConfig, CommitmentLevel as solanaCL, CommitmentLevel};
+use solana_commitment_config::{CommitmentConfig, CommitmentLevel};
 
-use csv::ReaderBuilder;
-use itertools::Itertools;
 use solana_pubkey::Pubkey;
 use std::collections::HashMap;
 use std::env;

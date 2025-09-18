@@ -85,7 +85,7 @@ impl Debug for GrpcSourceConfig {
 
 impl GrpcSourceConfig {
     /// Create a grpc source without tls and timeouts
-    pub fn new_simple(grpc_addr: String) -> Self {
+    pub const fn new_simple(grpc_addr: String) -> Self {
         Self {
             grpc_addr,
             grpc_x_token: None,
@@ -94,7 +94,7 @@ impl GrpcSourceConfig {
             compression: None,
         }
     }
-    pub fn new(
+    pub const fn new(
         grpc_addr: String,
         grpc_x_token: Option<String>,
         tls_config: Option<ClientTlsConfig>,
@@ -108,7 +108,7 @@ impl GrpcSourceConfig {
             compression: None,
         }
     }
-    pub fn new_compressed(
+    pub const fn new_compressed(
         grpc_addr: String,
         grpc_x_token: Option<String>,
         tls_config: Option<ClientTlsConfig>,
@@ -195,7 +195,7 @@ impl GeyserFilter {
     }
 }
 
-pub fn map_commitment_level(commitment_config: CommitmentConfig) -> CommitmentLevel {
+pub const fn map_commitment_level(commitment_config: CommitmentConfig) -> CommitmentLevel {
     // solana_sdk -> yellowstone
     match commitment_config.commitment {
         solana_commitment_config::CommitmentLevel::Processed => CommitmentLevel::Processed,

@@ -6,18 +6,13 @@
 
 use itertools::Itertools;
 use log::info;
-use solana_account_decoder::parse_token::spl_token_ids;
 use solana_clock::Slot;
-use solana_clock::UnixTimestamp;
 use solana_commitment_config::CommitmentLevel;
-use solana_pubkey::Pubkey;
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 use std::env;
-use std::str::FromStr;
 use std::sync::atomic::AtomicU64;
 use std::sync::Arc;
-use std::time::{Instant, SystemTime, UNIX_EPOCH};
-use tokio::sync::mpsc::{Receiver, Sender};
+use tokio::sync::mpsc::Receiver;
 
 use geyser_grpc_connector::grpc_subscription_autoreconnect_tasks::create_geyser_autoconnection_task_with_mpsc;
 use geyser_grpc_connector::{GrpcConnectionTimeouts, GrpcSourceConfig, Message};
@@ -25,8 +20,7 @@ use tokio::time::{sleep, Duration};
 use tonic::transport::ClientTlsConfig;
 use yellowstone_grpc_proto::geyser::subscribe_update::UpdateOneof;
 use yellowstone_grpc_proto::geyser::{
-    SubscribeRequest, SubscribeRequestFilterAccounts, SubscribeRequestFilterAccountsFilter,
-    SubscribeRequestFilterAccountsFilterMemcmp, SubscribeRequestFilterBlocksMeta,
+    SubscribeRequest,
     SubscribeRequestFilterSlots, SubscribeRequestFilterTransactions, SubscribeUpdateSlot,
 };
 

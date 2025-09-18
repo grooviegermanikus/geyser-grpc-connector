@@ -6,28 +6,22 @@
 
 use itertools::Itertools;
 use log::{info, trace};
-use solana_account_decoder::parse_token::spl_token_ids;
-use solana_clock::{Slot, UnixTimestamp};
+use solana_clock::Slot;
 use solana_pubkey::Pubkey;
 use std::collections::HashMap;
 use std::env;
-use std::str::FromStr;
 use std::sync::atomic::AtomicU64;
 use std::sync::Arc;
-use std::time::{Instant, SystemTime, UNIX_EPOCH};
-use tokio::sync::mpsc::{Receiver, Sender};
+use std::time::Instant;
+use tokio::sync::mpsc::Receiver;
 
 use geyser_grpc_connector::grpc_subscription_autoreconnect_tasks::create_geyser_autoconnection_task_with_mpsc;
 use geyser_grpc_connector::{GrpcConnectionTimeouts, GrpcSourceConfig, Message};
 use tokio::time::{sleep, Duration};
 use tonic::transport::ClientTlsConfig;
-use yellowstone_grpc_proto::geyser::subscribe_request_filter_accounts_filter::Filter::Memcmp;
-use yellowstone_grpc_proto::geyser::subscribe_request_filter_accounts_filter_memcmp::Data::Base58;
 use yellowstone_grpc_proto::geyser::subscribe_update::UpdateOneof;
 use yellowstone_grpc_proto::geyser::{
-    SubscribeRequest, SubscribeRequestFilterAccounts, SubscribeRequestFilterAccountsFilter,
-    SubscribeRequestFilterAccountsFilterMemcmp, SubscribeRequestFilterBlocksMeta,
-    SubscribeRequestFilterSlots,
+    SubscribeRequest, SubscribeRequestFilterAccounts,
 };
 
 type AtomicSlot = Arc<AtomicU64>;
@@ -216,7 +210,7 @@ fn is_blacklisted(pubkey: &str, owner: &str) -> bool {
     //     - PhoeNiXZ8ByJGLkxNfZRnkUfjvmuYqLR89jjFHGqdXY
     //     - LBUZKhRxPF3XUpBCjp4YzTKgLccjZhTSDM9YuVaPwxo  Meteora DLMM Program
     //     - 9xQeWvG816bUx9EPjHmaT23yvVM2ZWbrrpZb9PusVFin Serum DEX V3
-    let pubkey_blacklist = vec![];
+    let pubkey_blacklist = [];
     let owner_blacklist = vec![
         "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
         "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",
