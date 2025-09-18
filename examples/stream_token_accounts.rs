@@ -1,9 +1,13 @@
 use dashmap::DashMap;
-use log::{debug, info, trace};
-#[allow(deprecated)]
-use solana_account_decoder::parse_token::{
-    spl_token_ids, TokenAccountType, UiTokenAccount,
+use geyser_grpc_connector::grpc_subscription_autoreconnect_tasks::create_geyser_autoconnection_task_with_mpsc;
+use geyser_grpc_connector::{
+    map_commitment_level, GrpcConnectionTimeouts, GrpcSourceConfig, Message,
 };
+use log::{debug, info, trace};
+use solana_account_decoder::parse_account_data::SplTokenAdditionalDataV2;
+use solana_account_decoder::parse_token::parse_token_v3;
+#[allow(deprecated)]
+use solana_account_decoder::parse_token::{spl_token_ids, TokenAccountType, UiTokenAccount};
 use solana_clock::{Clock, Slot};
 use solana_commitment_config::CommitmentConfig;
 use solana_pubkey::Pubkey;
@@ -13,12 +17,6 @@ use std::env;
 use std::str::FromStr;
 use std::sync::Arc;
 use std::time::Instant;
-use solana_account_decoder::parse_account_data::SplTokenAdditionalDataV2;
-use solana_account_decoder::parse_token::parse_token_v3;
-use geyser_grpc_connector::grpc_subscription_autoreconnect_tasks::create_geyser_autoconnection_task_with_mpsc;
-use geyser_grpc_connector::{
-    map_commitment_level, GrpcConnectionTimeouts, GrpcSourceConfig, Message,
-};
 use tokio::time::{sleep, Duration};
 use tracing::warn;
 use yellowstone_grpc_proto::geyser::subscribe_update::UpdateOneof;
@@ -142,7 +140,10 @@ pub async fn main() {
                             }
 
                             #[allow(deprecated)]
-                            match parse_token_v3(&account.data, Some(&SplTokenAdditionalDataV2::with_decimals(6))) {
+                            match parse_token_v3(
+                                &account.data,
+                                Some(&SplTokenAdditionalDataV2::with_decimals(6)),
+                            ) {
                                 Ok(TokenAccountType::Account(account_ui)) => {
                                     // UiTokenAccount {
                                     //   mint: "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",

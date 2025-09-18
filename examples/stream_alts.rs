@@ -1,28 +1,30 @@
-use clap::Parser;
-use log::info;
-use solana_commitment_config::{CommitmentConfig, CommitmentLevel};
-use std::collections::HashMap;
-use std::env;
-use std::str::FromStr;
-use std::time::Duration;
 use anyhow::Context;
-use solana_clock::Slot;
-use solana_signature::Signature;
-use tokio::sync::broadcast;
-use tokio::time::Instant;
-use tonic::transport::ClientTlsConfig;
+use clap::Parser;
 use geyser_grpc_connector::grpc_subscription_autoreconnect_tasks::create_geyser_autoconnection_task_with_mpsc;
 use geyser_grpc_connector::{
     map_commitment_level, GrpcConnectionTimeouts, GrpcSourceConfig, Message,
 };
+use log::info;
+use solana_clock::Slot;
+use solana_commitment_config::{CommitmentConfig, CommitmentLevel};
+use solana_signature::Signature;
+use std::collections::HashMap;
+use std::env;
+use std::str::FromStr;
+use std::time::Duration;
+use tokio::sync::broadcast;
+use tokio::time::Instant;
+use tonic::transport::ClientTlsConfig;
 use yellowstone_grpc_proto::geyser::subscribe_update::UpdateOneof;
-use yellowstone_grpc_proto::geyser::{SlotStatus, SubscribeRequest, SubscribeRequestFilterAccounts, SubscribeRequestFilterSlots, SubscribeRequestFilterTransactions};
+use yellowstone_grpc_proto::geyser::{
+    SlotStatus, SubscribeRequest, SubscribeRequestFilterAccounts, SubscribeRequestFilterSlots,
+    SubscribeRequestFilterTransactions,
+};
 use yellowstone_grpc_proto::prost::Message as ProtoMessage;
 
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
-pub struct Args {
-}
+pub struct Args {}
 
 #[tokio::main(flavor = "current_thread")]
 pub async fn main() {
@@ -48,8 +50,12 @@ pub async fn main() {
 
     let tls_config = ClientTlsConfig::new().with_native_roots();
 
-    let green_config =
-        GrpcSourceConfig::new(grpc_addr_green, grpc_x_token_green, Some(tls_config.clone()), timeouts.clone());
+    let green_config = GrpcSourceConfig::new(
+        grpc_addr_green,
+        grpc_x_token_green,
+        Some(tls_config.clone()),
+        timeouts.clone(),
+    );
 
     let (autoconnect_tx, mut slots_rx) = tokio::sync::mpsc::channel(10);
 
@@ -66,7 +72,6 @@ pub async fn main() {
         match slots_rx.recv().await {
             Some(Message::GeyserSubscribeUpdate(update)) => match update.update_oneof {
                 Some(UpdateOneof::Account(msg)) => {
-
                     info!(
                         "Received alt message: slot {}, msgsize {}",
                         msg.slot,
@@ -84,7 +89,6 @@ pub async fn main() {
         }
     }
 }
-
 
 fn build_alt_subscription() -> SubscribeRequest {
     let mut accounts_subs = HashMap::new();
@@ -105,4 +109,3 @@ fn build_alt_subscription() -> SubscribeRequest {
         ..Default::default()
     }
 }
-

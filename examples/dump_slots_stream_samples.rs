@@ -11,12 +11,12 @@
 use log::{info, warn};
 use solana_commitment_config::{CommitmentConfig, CommitmentLevel as solanaCL, CommitmentLevel};
 
-use std::collections::HashMap;
-use std::env;
-use std::time::SystemTime;
 use csv::ReaderBuilder;
 use itertools::Itertools;
 use solana_pubkey::Pubkey;
+use std::collections::HashMap;
+use std::env;
+use std::time::SystemTime;
 
 use tokio::sync::broadcast;
 use tokio::sync::mpsc::Receiver;
@@ -143,9 +143,7 @@ fn start_account_same_level(
     });
 }
 
-fn map_slot_status(
-    slot_update: &SubscribeUpdateSlot,
-) -> solana_commitment_config::CommitmentLevel {
+fn map_slot_status(slot_update: &SubscribeUpdateSlot) -> solana_commitment_config::CommitmentLevel {
     use solana_commitment_config::CommitmentLevel as solanaCL;
     use yellowstone_grpc_proto::geyser::CommitmentLevel as yCL;
     yellowstone_grpc_proto::geyser::CommitmentLevel::try_from(slot_update.status)

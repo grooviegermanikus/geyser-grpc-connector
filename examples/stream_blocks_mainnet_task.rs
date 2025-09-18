@@ -5,12 +5,12 @@ use itertools::Itertools;
 use log::{info, warn};
 use solana_clock::Slot;
 use solana_commitment_config::CommitmentConfig;
-use solana_compute_budget::{compute_budget};
+use solana_compute_budget::compute_budget;
 use solana_compute_budget_interface::ComputeBudgetInstruction;
 use solana_hash::Hash;
 use solana_message::compiled_instruction::CompiledInstruction;
-use solana_message::{v0, MessageHeader, VersionedMessage};
 use solana_message::v0::MessageAddressTableLookup;
+use solana_message::{v0, MessageHeader, VersionedMessage};
 use solana_pubkey::Pubkey;
 use solana_signature::Signature;
 use solana_transaction::TransactionError;
@@ -227,7 +227,9 @@ pub fn map_produced_block(
                         Pubkey::new_from_array(bytes)
                     })
                     .collect(),
-                recent_blockhash: Hash::new_from_array( message.recent_blockhash.as_slice().try_into().unwrap()),
+                recent_blockhash: Hash::new_from_array(
+                    message.recent_blockhash.as_slice().try_into().unwrap(),
+                ),
                 instructions: message
                     .instructions
                     .into_iter()

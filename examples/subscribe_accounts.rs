@@ -20,10 +20,14 @@ use geyser_grpc_connector::grpc_subscription_autoreconnect_tasks::create_geyser_
 use geyser_grpc_connector::{GrpcConnectionTimeouts, GrpcSourceConfig, Message};
 use tokio::time::{sleep, Duration};
 use tonic::transport::ClientTlsConfig;
-use yellowstone_grpc_proto::geyser::subscribe_update::UpdateOneof;
-use yellowstone_grpc_proto::geyser::{SubscribeRequest, SubscribeRequestFilterAccounts, SubscribeRequestFilterAccountsFilter, SubscribeRequestFilterAccountsFilterMemcmp, SubscribeRequestFilterBlocksMeta, SubscribeRequestFilterSlots};
 use yellowstone_grpc_proto::geyser::subscribe_request_filter_accounts_filter::Filter::Memcmp;
 use yellowstone_grpc_proto::geyser::subscribe_request_filter_accounts_filter_memcmp::Data::Base58;
+use yellowstone_grpc_proto::geyser::subscribe_update::UpdateOneof;
+use yellowstone_grpc_proto::geyser::{
+    SubscribeRequest, SubscribeRequestFilterAccounts, SubscribeRequestFilterAccountsFilter,
+    SubscribeRequestFilterAccountsFilterMemcmp, SubscribeRequestFilterBlocksMeta,
+    SubscribeRequestFilterSlots,
+};
 
 type AtomicSlot = Arc<AtomicU64>;
 
@@ -351,4 +355,3 @@ pub fn drift_subscription() -> SubscribeRequest {
         ..Default::default()
     }
 }
-

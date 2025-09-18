@@ -1,23 +1,25 @@
-use clap::Parser;
-use log::{info, warn};
-use solana_commitment_config::{CommitmentConfig, CommitmentLevel as solanaCL, CommitmentLevel};
-use yellowstone_grpc_proto::geyser::{CommitmentLevel as yCL, SubscribeUpdateSlot};
-use std::collections::{HashMap, HashSet};
-use std::env;
-use std::str::FromStr;
-use std::time::Duration;
 use anyhow::{anyhow, Context};
-use solana_clock::Slot;
-use solana_signature::Signature;
-use tokio::sync::broadcast;
-use tokio::time::Instant;
-use tonic::transport::ClientTlsConfig;
+use clap::Parser;
 use geyser_grpc_connector::grpc_subscription_autoreconnect_tasks::create_geyser_autoconnection_task_with_mpsc;
 use geyser_grpc_connector::{
     map_commitment_level, GrpcConnectionTimeouts, GrpcSourceConfig, Message,
 };
+use log::{info, warn};
+use solana_clock::Slot;
+use solana_commitment_config::{CommitmentConfig, CommitmentLevel as solanaCL, CommitmentLevel};
+use solana_signature::Signature;
+use std::collections::{HashMap, HashSet};
+use std::env;
+use std::str::FromStr;
+use std::time::Duration;
+use tokio::sync::broadcast;
+use tokio::time::Instant;
+use tonic::transport::ClientTlsConfig;
 use yellowstone_grpc_proto::geyser::subscribe_update::UpdateOneof;
-use yellowstone_grpc_proto::geyser::{SlotStatus, SubscribeRequest, SubscribeRequestFilterSlots, SubscribeRequestFilterTransactions};
+use yellowstone_grpc_proto::geyser::{CommitmentLevel as yCL, SubscribeUpdateSlot};
+use yellowstone_grpc_proto::geyser::{
+    SlotStatus, SubscribeRequest, SubscribeRequestFilterSlots, SubscribeRequestFilterTransactions,
+};
 
 // 2025-09-09T16:12:30.236552Z  INFO fork_detection: Fork-Detection: Slot 365713185 finalized, parent=365713184
 // 2025-09-09T16:12:30.661459Z  INFO fork_detection: Fork-Detection: Slot 365713186 finalized, parent=365713185
@@ -35,18 +37,15 @@ use yellowstone_grpc_proto::geyser::{SlotStatus, SubscribeRequest, SubscribeRequ
 
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
-pub struct Args {
-
-
-}
+pub struct Args {}
 
 #[tokio::main(flavor = "current_thread")]
 pub async fn main() {
     tracing_subscriber::fmt::init();
     rustls::crypto::aws_lc_rs::default_provider()
-        .install_default().expect("tls");
+        .install_default()
+        .expect("tls");
 
-    
     let _args = Args::parse();
 
     let grpc_addr = env::var("GRPC_ADDR").expect("need grpc url");
@@ -67,8 +66,12 @@ pub async fn main() {
 
     let tls_config = ClientTlsConfig::new().with_native_roots();
 
-    let grpc_config =
-        GrpcSourceConfig::new(grpc_addr, grpc_x_token, Some(tls_config.clone()), timeouts.clone());
+    let grpc_config = GrpcSourceConfig::new(
+        grpc_addr,
+        grpc_x_token,
+        Some(tls_config.clone()),
+        timeouts.clone(),
+    );
 
     let (autoconnect_tx, mut slots_rx) = tokio::sync::mpsc::channel(10);
 
@@ -86,7 +89,6 @@ pub async fn main() {
         match slots_rx.recv().await {
             Some(Message::GeyserSubscribeUpdate(update)) => match update.update_oneof {
                 Some(UpdateOneof::Slot(update_msg)) => {
-
                     let slot_status = map_slot_status_to_commitment_level(&update_msg)
                         .unwrap_or_else(|_| {
                             panic!("invalid commitment level: status={}", update_msg.status)
@@ -97,21 +99,28 @@ pub async fn main() {
                     }
 
                     if slot_status == Some(solanaCL::Finalized) {
-
                         let last_finalized_slot = update_msg.parent.expect("parent slot");
                         let diff = update_msg.slot - last_finalized_slot;
                         if diff == 1 {
-                            info!("Fork-Detection: Slot {} finalized, parent={}", update_msg.slot, last_finalized_slot);
+                            info!(
+                                "Fork-Detection: Slot {} finalized, parent={}",
+                                update_msg.slot, last_finalized_slot
+                            );
                         } else if diff > 1 {
-                            warn!("Fork-Detection: Slot {} finalized, parent={}", update_msg.slot, last_finalized_slot);
+                            warn!(
+                                "Fork-Detection: Slot {} finalized, parent={}",
+                                update_msg.slot, last_finalized_slot
+                            );
                         }
 
-                        for checking_slot in (last_finalized_slot+1)..=(update_msg.slot-1) {
+                        for checking_slot in (last_finalized_slot + 1)..=(update_msg.slot - 1) {
                             let orphan_slot_seen = all_slots.contains(&checking_slot);
-                            info!("checking slot {}, orphan={}", checking_slot, orphan_slot_seen);
+                            info!(
+                                "checking slot {}, orphan={}",
+                                checking_slot, orphan_slot_seen
+                            );
                         }
                     }
-
                 }
                 Some(_) => {}
                 None => {}
@@ -124,7 +133,6 @@ pub async fn main() {
         }
     }
 }
-
 
 fn build_slot_subscription() -> SubscribeRequest {
     let slots_sub = HashMap::from([(

@@ -4,6 +4,7 @@
 // ```
 //
 
+use itertools::Itertools;
 use log::{info, trace};
 use solana_account_decoder::parse_token::spl_token_ids;
 use solana_clock::{Slot, UnixTimestamp};
@@ -14,7 +15,6 @@ use std::str::FromStr;
 use std::sync::atomic::AtomicU64;
 use std::sync::Arc;
 use std::time::{Instant, SystemTime, UNIX_EPOCH};
-use itertools::Itertools;
 use tokio::sync::mpsc::{Receiver, Sender};
 
 use geyser_grpc_connector::grpc_subscription_autoreconnect_tasks::create_geyser_autoconnection_task_with_mpsc;
@@ -22,7 +22,11 @@ use geyser_grpc_connector::{GrpcConnectionTimeouts, GrpcSourceConfig, Message};
 use tokio::time::{sleep, Duration};
 use tonic::transport::ClientTlsConfig;
 use yellowstone_grpc_proto::geyser::subscribe_update::UpdateOneof;
-use yellowstone_grpc_proto::geyser::{SubscribeRequest, SubscribeRequestFilterAccounts, SubscribeRequestFilterAccountsFilter, SubscribeRequestFilterAccountsFilterMemcmp, SubscribeRequestFilterBlocksMeta, SubscribeRequestFilterSlots, SubscribeRequestFilterTransactions};
+use yellowstone_grpc_proto::geyser::{
+    SubscribeRequest, SubscribeRequestFilterAccounts, SubscribeRequestFilterAccountsFilter,
+    SubscribeRequestFilterAccountsFilterMemcmp, SubscribeRequestFilterBlocksMeta,
+    SubscribeRequestFilterSlots, SubscribeRequestFilterTransactions,
+};
 
 type AtomicSlot = Arc<AtomicU64>;
 
@@ -76,7 +80,6 @@ fn start_tracking_account_consumer(
     _current_processed_slot: Arc<AtomicU64>,
 ) {
     tokio::spawn(async move {
-
         let mut tx_count_total: u64 = 0;
         let mut tx_count_blacklisted: u64 = 0;
         let mut tx_count_phoenix: u64 = 0;
@@ -96,13 +99,23 @@ fn start_tracking_account_consumer(
                 Some(Message::GeyserSubscribeUpdate(update)) => {
                     match update.update_oneof {
                         Some(UpdateOneof::Transaction(update_tx)) => {
-                            let filters = update.filters.iter().map(|s| s.to_ascii_lowercase()).collect_vec();
-                            let is_blacklist = filters.contains(&"transaction_sub_blacklisted".to_string());
-                            let is_phoenix = filters.contains(&"transaction_sub_phoenix".to_string());
+                            let filters = update
+                                .filters
+                                .iter()
+                                .map(|s| s.to_ascii_lowercase())
+                                .collect_vec();
+                            let is_blacklist =
+                                filters.contains(&"transaction_sub_blacklisted".to_string());
+                            let is_phoenix =
+                                filters.contains(&"transaction_sub_phoenix".to_string());
                             let slot = update_tx.slot;
                             let tx_info = update_tx.transaction.unwrap();
                             let tx_sig = bs58::encode(tx_info.signature).into_string();
-                            let account_keys: Vec<Pubkey> = tx_info.transaction.unwrap().message.unwrap()
+                            let account_keys: Vec<Pubkey> = tx_info
+                                .transaction
+                                .unwrap()
+                                .message
+                                .unwrap()
                                 .account_keys
                                 .into_iter()
                                 .flat_map(|key_bytes| {
@@ -111,7 +124,6 @@ fn start_tracking_account_consumer(
                                 })
                                 .collect();
 
-
                             // info!("sig {} - bl {}", tx_sig, is_blacklist);
 
                             tx_count_total += 1;
@@ -119,7 +131,8 @@ fn start_tracking_account_consumer(
                                 tx_count_blacklisted += 1;
 
                                 // note: this is incomplete due to missing ALT lookup
-                                let blacklist_item = account_keys.iter()
+                                let blacklist_item = account_keys
+                                    .iter()
                                     .filter(|pubkey| blacklist.contains(pubkey))
                                     .collect_vec();
 
@@ -141,7 +154,11 @@ fn start_tracking_account_consumer(
                                     slot, tx_count_total, tx_count_blacklisted, tx_count_phoenix, (tx_count_blacklisted as f64 / tx_count_total as f64) * 100.0);
 
                                 info!("Top blacklisted accounts:");
-                                for (pk, count) in blacklisted_by_account.iter().sorted_by(|a, b| b.1.cmp(a.1)).take(10) {
+                                for (pk, count) in blacklisted_by_account
+                                    .iter()
+                                    .sorted_by(|a, b| b.1.cmp(a.1))
+                                    .take(10)
+                                {
                                     info!("  {} - {}", pk, count);
                                 }
                             }
@@ -149,7 +166,7 @@ fn start_tracking_account_consumer(
                         None => {}
                         _ => {}
                     }
-                },
+                }
                 None => {
                     log::warn!("multiplexer channel closed - aborting");
                     return;
@@ -160,11 +177,9 @@ fn start_tracking_account_consumer(
     });
 }
 
-
 // note that Vote accounts are excluded
 fn filter_transactions() -> SubscribeRequest {
     let mut transactions_subs = HashMap::new();
-
 
     transactions_subs.insert(
         "transaction_all".to_string(),
@@ -177,7 +192,6 @@ fn filter_transactions() -> SubscribeRequest {
             account_required: vec![],
         },
     );
-
 
     let account_blacklist = blacklist();
     transactions_subs.insert(
@@ -193,12 +207,10 @@ fn filter_transactions() -> SubscribeRequest {
         },
     );
 
-
     let account_phoenix = vec![
         "4DoNfFBfF7UokCC2FQzriy7yHK6DY6NVdYpuekQ5pRgg",
         "Ew3vFDdtdGrknJAVVfraxCA37uNJtimXYPY4QjnfhFHH",
         // TODO move
-
     ];
     transactions_subs.insert(
         "transaction_sub_phoenix".to_string(),
@@ -217,8 +229,6 @@ fn filter_transactions() -> SubscribeRequest {
         ..Default::default()
     }
 }
-
-
 
 fn blacklist() -> Vec<&'static str> {
     vec![

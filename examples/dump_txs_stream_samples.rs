@@ -1,10 +1,10 @@
-use std::collections::HashMap;
-use std::env;
 use itertools::Itertools;
 use log::info;
 use solana_commitment_config::{CommitmentConfig, CommitmentLevel};
 use solana_pubkey::Pubkey;
 use solana_signature::Signature;
+use std::collections::HashMap;
+use std::env;
 use tokio::sync::broadcast;
 use tokio::time::Duration;
 use yellowstone_grpc_proto::geyser::subscribe_update::UpdateOneof;
@@ -55,16 +55,19 @@ pub async fn main() {
                 Some(UpdateOneof::Transaction(update)) => {
                     let tx = update.transaction.unwrap();
                     let sig = Signature::try_from(tx.signature.as_slice()).unwrap();
-                    let account_keys =
-                        tx.transaction.unwrap().message.unwrap()
-                            .account_keys
-                            .into_iter()
-                            .map(|key| {
-                                let bytes: [u8; 32] =
-                                    key.try_into().unwrap_or(Pubkey::default().to_bytes());
-                                Pubkey::new_from_array(bytes)
-                            })
-                            .collect_vec();
+                    let account_keys = tx
+                        .transaction
+                        .unwrap()
+                        .message
+                        .unwrap()
+                        .account_keys
+                        .into_iter()
+                        .map(|key| {
+                            let bytes: [u8; 32] =
+                                key.try_into().unwrap_or(Pubkey::default().to_bytes());
+                            Pubkey::new_from_array(bytes)
+                        })
+                        .collect_vec();
                     let is_jup = account_keys.iter().any(|key| {
                         key.to_string() == "JUP6LkbZbjS1jKKwapdHNy74zcZ3tLUZoi5QNyVTaV4"
                     });
@@ -89,7 +92,8 @@ fn jupyter_and_dflow_trades() -> SubscribeRequest {
             signature: None,
             account_include: vec![
                 "JUP6LkbZbjS1jKKwapdHNy74zcZ3tLUZoi5QNyVTaV4".to_string(),
-                "DF1ow4tspfHX9JwWJsAb9epbkA8hmpSEAtxXy1V27QBH".to_string(),],
+                "DF1ow4tspfHX9JwWJsAb9epbkA8hmpSEAtxXy1V27QBH".to_string(),
+            ],
             account_exclude: vec![],
             account_required: vec![],
         },

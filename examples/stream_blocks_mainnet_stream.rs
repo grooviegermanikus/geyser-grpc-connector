@@ -3,13 +3,18 @@ use std::pin::pin;
 
 use base64::Engine;
 use futures::{Stream, StreamExt};
+use geyser_grpc_connector::grpc_subscription_autoreconnect_streams::create_geyser_reconnecting_stream;
+use geyser_grpc_connector::grpcmultiplex_fastestwins::{
+    create_multiplexed_stream, FromYellowstoneExtractor,
+};
+use geyser_grpc_connector::{GeyserFilter, GrpcConnectionTimeouts, GrpcSourceConfig};
 use itertools::Itertools;
 use log::info;
+use solana_clock::Slot;
 use solana_commitment_config::CommitmentConfig;
+use solana_compute_budget_interface::ComputeBudgetInstruction;
 use solana_hash::Hash;
 use solana_message::compiled_instruction::CompiledInstruction;
-use solana_clock::Slot;
-use solana_compute_budget_interface::ComputeBudgetInstruction;
 use solana_message::v0::MessageAddressTableLookup;
 use solana_message::{v0, MessageHeader, VersionedMessage};
 use solana_pubkey::Pubkey;
@@ -20,11 +25,6 @@ use tokio::time::{sleep, Duration};
 use yellowstone_grpc_proto::geyser::subscribe_update::UpdateOneof;
 use yellowstone_grpc_proto::geyser::SubscribeUpdate;
 use yellowstone_grpc_proto::geyser::SubscribeUpdateBlock;
-use geyser_grpc_connector::grpc_subscription_autoreconnect_streams::create_geyser_reconnecting_stream;
-use geyser_grpc_connector::grpcmultiplex_fastestwins::{
-    create_multiplexed_stream, FromYellowstoneExtractor,
-};
-use geyser_grpc_connector::{GeyserFilter, GrpcConnectionTimeouts, GrpcSourceConfig};
 
 pub mod debouncer;
 
@@ -258,7 +258,9 @@ pub fn map_produced_block(
                         Pubkey::new_from_array(bytes)
                     })
                     .collect(),
-                recent_blockhash: Hash::new_from_array(message.recent_blockhash.as_slice().try_into().unwrap()),
+                recent_blockhash: Hash::new_from_array(
+                    message.recent_blockhash.as_slice().try_into().unwrap(),
+                ),
                 instructions: message
                     .instructions
                     .into_iter()
