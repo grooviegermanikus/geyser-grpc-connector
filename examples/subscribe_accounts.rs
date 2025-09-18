@@ -314,7 +314,7 @@ pub fn drift_subscription() -> SubscribeRequest {
         },
     )]);
 
-    let drift_only = std::env::var("DEVMODE_FILTER_DRIFT_ONLY").is_ok();
+    let _drift_only = std::env::var("DEVMODE_FILTER_DRIFT_ONLY").is_ok();
 
     let (accounts, transactions) = {
         let accounts_whitelist = vec!["dRiftyHA39MWEi3m9aunc5MzRF1JYuBsbn6VPcn33UH".to_string()];

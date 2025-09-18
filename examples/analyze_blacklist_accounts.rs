@@ -20,9 +20,7 @@ use geyser_grpc_connector::{GrpcConnectionTimeouts, GrpcSourceConfig, Message};
 use tokio::time::{sleep, Duration};
 use tonic::transport::ClientTlsConfig;
 use yellowstone_grpc_proto::geyser::subscribe_update::UpdateOneof;
-use yellowstone_grpc_proto::geyser::{
-    SubscribeRequest, SubscribeRequestFilterAccounts,
-};
+use yellowstone_grpc_proto::geyser::{SubscribeRequest, SubscribeRequestFilterAccounts};
 
 type AtomicSlot = Arc<AtomicU64>;
 
@@ -53,7 +51,7 @@ pub async fn main() {
 
     let (autoconnect_tx, geyser_messages_rx) = tokio::sync::mpsc::channel(10);
     let (_exit_tx, exit_rx) = tokio::sync::broadcast::channel::<()>(1);
-    let (subscribe_filter_update_tx, mut _subscribe_filter_update_rx) =
+    let (_subscribe_filter_update_tx, mut _subscribe_filter_update_rx) =
         tokio::sync::mpsc::channel::<SubscribeRequest>(1);
 
     let _jh = create_geyser_autoconnection_task_with_mpsc(
@@ -88,7 +86,7 @@ fn start_tracking_account_consumer(
         let mut last_prune: Slot = 0;
         let mut last_print: Slot = 0;
 
-        'stream_loop: loop {
+        '_stream_loop: loop {
             match geyser_messages_rx.recv().await {
                 Some(Message::GeyserSubscribeUpdate(update)) => match update.update_oneof {
                     Some(UpdateOneof::Account(update)) => {
@@ -161,7 +159,7 @@ fn start_tracking_account_consumer(
                             }
 
                             info!("Top accounts by size (total {}):", size_per_pubkey.len());
-                            let dump_started_at = Instant::now();
+                            let _dump_started_at = Instant::now();
                             for (pk, size) in size_per_pubkey
                                 .iter()
                                 .sorted_by(|a, b| b.1.cmp(a.1))
@@ -284,10 +282,10 @@ fn is_blacklisted(pubkey: &str, owner: &str) -> bool {
 }
 
 // don't include these well known accounts into analysis
-fn exclude_from_analysis(pubkey: &str, owner: &str) -> bool {
+fn _exclude_from_analysis(pubkey: &str, owner: &str) -> bool {
     const RAYDIUM_AMM_PUBKEY: &str = "675kPX9MHTjS2zt1qfr1NYHuzeLXfQM9H24wFSUt1Mp8";
 
-    let pubkey_lower = pubkey.to_ascii_lowercase();
+    let _pubkey_lower = pubkey.to_ascii_lowercase();
     let owner_lower = owner.to_ascii_lowercase();
 
     if owner_lower.contains("jup") || owner_lower.contains("jito") {

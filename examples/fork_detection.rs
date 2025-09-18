@@ -14,9 +14,7 @@ use tokio::sync::broadcast;
 use tonic::transport::ClientTlsConfig;
 use yellowstone_grpc_proto::geyser::subscribe_update::UpdateOneof;
 use yellowstone_grpc_proto::geyser::{CommitmentLevel as yCL, SubscribeUpdateSlot};
-use yellowstone_grpc_proto::geyser::{
-    SubscribeRequest, SubscribeRequestFilterSlots,
-};
+use yellowstone_grpc_proto::geyser::{SubscribeRequest, SubscribeRequestFilterSlots};
 
 // 2025-09-09T16:12:30.236552Z  INFO fork_detection: Fork-Detection: Slot 365713185 finalized, parent=365713184
 // 2025-09-09T16:12:30.661459Z  INFO fork_detection: Fork-Detection: Slot 365713186 finalized, parent=365713185
@@ -82,7 +80,7 @@ pub async fn main() {
     );
 
     let mut all_slots: HashSet<Slot> = HashSet::with_capacity(1024);
-    'recv_loop: loop {
+    '_recv_loop: loop {
         match slots_rx.recv().await {
             Some(Message::GeyserSubscribeUpdate(update)) => match update.update_oneof {
                 Some(UpdateOneof::Slot(update_msg)) => {

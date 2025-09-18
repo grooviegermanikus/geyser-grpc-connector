@@ -20,8 +20,8 @@ use tokio::time::{sleep, Duration};
 use tonic::transport::ClientTlsConfig;
 use yellowstone_grpc_proto::geyser::subscribe_update::UpdateOneof;
 use yellowstone_grpc_proto::geyser::{
-    SubscribeRequest,
-    SubscribeRequestFilterSlots, SubscribeRequestFilterTransactions, SubscribeUpdateSlot,
+    SubscribeRequest, SubscribeRequestFilterSlots, SubscribeRequestFilterTransactions,
+    SubscribeUpdateSlot,
 };
 
 type AtomicSlot = Arc<AtomicU64>;
@@ -53,7 +53,7 @@ pub async fn main() {
 
     let (autoconnect_tx, geyser_messages_rx) = tokio::sync::mpsc::channel(10);
     let (_exit_tx, exit_rx) = tokio::sync::broadcast::channel::<()>(1);
-    let (subscribe_filter_update_tx, mut _subscribe_filter_update_rx) =
+    let (_subscribe_filter_update_tx, mut _subscribe_filter_update_rx) =
         tokio::sync::mpsc::channel::<SubscribeRequest>(1);
 
     let _jh = create_geyser_autoconnection_task_with_mpsc(
@@ -86,7 +86,7 @@ fn start_tracking_account_consumer(
         let mut processed_txs_per_block: HashMap<Slot, u64> = HashMap::new();
         let mut finalized_txs_per_block: HashMap<Slot, u64> = HashMap::new();
 
-        'stream_loop: loop {
+        '_stream_loop: loop {
             match geyser_messages_rx.recv().await {
                 Some(Message::GeyserSubscribeUpdate(update)) => match update.update_oneof {
                     Some(UpdateOneof::Transaction(update_tx)) => {
@@ -101,7 +101,7 @@ fn start_tracking_account_consumer(
                             filters.contains(&"transaction_sub_finalized".to_string());
                         let slot = update_tx.slot;
                         let tx_info = update_tx.transaction.unwrap();
-                        let tx_sig = bs58::encode(tx_info.signature).into_string();
+                        let _tx_sig = bs58::encode(tx_info.signature).into_string();
 
                         if is_processed {
                             processed_txs_per_block

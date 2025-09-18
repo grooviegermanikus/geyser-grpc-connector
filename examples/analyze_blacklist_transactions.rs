@@ -20,9 +20,7 @@ use geyser_grpc_connector::{GrpcConnectionTimeouts, GrpcSourceConfig, Message};
 use tokio::time::{sleep, Duration};
 use tonic::transport::ClientTlsConfig;
 use yellowstone_grpc_proto::geyser::subscribe_update::UpdateOneof;
-use yellowstone_grpc_proto::geyser::{
-    SubscribeRequest, SubscribeRequestFilterTransactions,
-};
+use yellowstone_grpc_proto::geyser::{SubscribeRequest, SubscribeRequestFilterTransactions};
 
 type AtomicSlot = Arc<AtomicU64>;
 
@@ -53,7 +51,7 @@ pub async fn main() {
 
     let (autoconnect_tx, geyser_messages_rx) = tokio::sync::mpsc::channel(10);
     let (_exit_tx, exit_rx) = tokio::sync::broadcast::channel::<()>(1);
-    let (subscribe_filter_update_tx, mut _subscribe_filter_update_rx) =
+    let (_subscribe_filter_update_tx, mut _subscribe_filter_update_rx) =
         tokio::sync::mpsc::channel::<SubscribeRequest>(1);
 
     let _jh = create_geyser_autoconnection_task_with_mpsc(
@@ -82,7 +80,7 @@ fn start_tracking_account_consumer(
 
         let mut blacklisted_by_account: HashMap<Pubkey, u64> = HashMap::new();
 
-        let last_prune: Slot = 0;
+        let _last_prune: Slot = 0;
         let mut last_print: Slot = 0;
 
         let blacklist: HashSet<Pubkey> = blacklist()
@@ -90,7 +88,7 @@ fn start_tracking_account_consumer(
             .filter_map(|s| Pubkey::from_str(s).ok())
             .collect();
 
-        'stream_loop: loop {
+        '_stream_loop: loop {
             match geyser_messages_rx.recv().await {
                 Some(Message::GeyserSubscribeUpdate(update)) => {
                     match update.update_oneof {
@@ -106,7 +104,7 @@ fn start_tracking_account_consumer(
                                 filters.contains(&"transaction_sub_phoenix".to_string());
                             let slot = update_tx.slot;
                             let tx_info = update_tx.transaction.unwrap();
-                            let tx_sig = bs58::encode(tx_info.signature).into_string();
+                            let _tx_sig = bs58::encode(tx_info.signature).into_string();
                             let account_keys: Vec<Pubkey> = tx_info
                                 .transaction
                                 .unwrap()
@@ -203,7 +201,7 @@ fn filter_transactions() -> SubscribeRequest {
         },
     );
 
-    let account_phoenix = vec![
+    let account_phoenix = [
         "4DoNfFBfF7UokCC2FQzriy7yHK6DY6NVdYpuekQ5pRgg",
         "Ew3vFDdtdGrknJAVVfraxCA37uNJtimXYPY4QjnfhFHH",
         // TODO move

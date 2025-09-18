@@ -12,9 +12,7 @@ use std::time::Duration;
 use tokio::sync::broadcast;
 use tonic::transport::ClientTlsConfig;
 use yellowstone_grpc_proto::geyser::subscribe_update::UpdateOneof;
-use yellowstone_grpc_proto::geyser::{
-    SubscribeRequest, SubscribeRequestFilterTransactions,
-};
+use yellowstone_grpc_proto::geyser::{SubscribeRequest, SubscribeRequestFilterTransactions};
 
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
@@ -24,7 +22,7 @@ pub struct Args {}
 pub async fn main() {
     tracing_subscriber::fmt::init();
 
-    let args = Args::parse();
+    let _args = Args::parse();
 
     let grpc_addr_green = env::var("GRPC_ADDR").expect("need grpc url for green");
     let grpc_x_token_green = env::var("GRPC_X_TOKEN").ok();
@@ -82,7 +80,7 @@ pub async fn main() {
         exit_notify.resubscribe(),
     );
 
-    'recv_loop: loop {
+    '_recv_loop: loop {
         match slots_rx.recv().await {
             Some(Message::GeyserSubscribeUpdate(update)) => match update.update_oneof {
                 Some(UpdateOneof::TransactionStatus(msg)) => {
