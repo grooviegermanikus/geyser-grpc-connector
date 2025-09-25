@@ -8,7 +8,9 @@ use solana_commitment_config::CommitmentConfig;
 use solana_signature::Signature;
 use std::collections::HashMap;
 use std::env;
+use std::str::FromStr;
 use std::time::Duration;
+use solana_pubkey::Pubkey;
 use tokio::sync::broadcast;
 use tonic::transport::ClientTlsConfig;
 use yellowstone_grpc_proto::geyser::subscribe_update::UpdateOneof;
@@ -26,18 +28,11 @@ pub async fn main() {
 
     let grpc_addr_green = env::var("GRPC_ADDR").expect("need grpc url for green");
     let grpc_x_token_green = env::var("GRPC_X_TOKEN").ok();
-    let grpc_addr_blue = env::var("GRPC_ADDR2").expect("need grpc url for blue");
-    let grpc_x_token_blue = env::var("GRPC_X_TOKEN2").ok();
 
     info!(
         "Using grpc source green on {} ({})",
         grpc_addr_green,
         grpc_x_token_green.is_some()
-    );
-    info!(
-        "Using grpc source blue on {} ({})",
-        grpc_addr_blue,
-        grpc_x_token_blue.is_some()
     );
 
     let timeouts = GrpcConnectionTimeouts {
@@ -55,30 +50,27 @@ pub async fn main() {
         Some(tls_config.clone()),
         timeouts.clone(),
     );
-    let blue_config = GrpcSourceConfig::new(
-        grpc_addr_blue,
-        grpc_x_token_blue,
-        Some(tls_config),
-        timeouts.clone(),
-    );
 
     let (autoconnect_tx, mut slots_rx) = tokio::sync::mpsc::channel(10);
 
     let (_exit, exit_notify) = broadcast::channel(1);
 
+    let my_wallet = Pubkey::from_str("ENysnWXFmvqZoeATS1kRwk9JViiNwJM1fdKgrMpZ5TWV").unwrap();
+    info!("Filtering tx status for wallet: {}", my_wallet);
+
     let _green_stream_ah = create_geyser_autoconnection_task_with_mpsc(
         green_config.clone(),
-        build_tx_status_subscription(),
+        build_tx_status_subscription(my_wallet),
         autoconnect_tx.clone(),
         exit_notify.resubscribe(),
     );
 
-    let _blue_stream_ah = create_geyser_autoconnection_task_with_mpsc(
-        blue_config.clone(),
-        build_tx_status_subscription(),
-        autoconnect_tx.clone(),
-        exit_notify.resubscribe(),
-    );
+    // let _blue_stream_ah = create_geyser_autoconnection_task_with_mpsc(
+    //     blue_config.clone(),
+    //     build_tx_status_subscription(),
+    //     autoconnect_tx.clone(),
+    //     exit_notify.resubscribe(),
+    // );
 
     '_recv_loop: loop {
         match slots_rx.recv().await {
@@ -86,7 +78,7 @@ pub async fn main() {
                 Some(UpdateOneof::TransactionStatus(msg)) => {
                     let sig = Signature::try_from(msg.signature.as_slice()).unwrap();
 
-                    info!("Received tx status: slot {}, status: {:?}", msg.slot, sig);
+                    info!("Received tx status: slot {}, tx: {:?}", msg.slot, sig);
                 }
                 Some(_) => {}
                 None => {}
@@ -100,7 +92,7 @@ pub async fn main() {
     }
 }
 
-fn build_tx_status_subscription() -> SubscribeRequest {
+fn build_tx_status_subscription(wallet: Pubkey) -> SubscribeRequest {
     let mut transactions_status_subs = HashMap::new();
     transactions_status_subs.insert(
         "client".to_string(),
