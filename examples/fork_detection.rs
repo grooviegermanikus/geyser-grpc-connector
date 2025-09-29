@@ -1,23 +1,21 @@
 use clap::Parser;
 use log::{info, warn};
-use solana_sdk::commitment_config::{CommitmentConfig, CommitmentLevel as solanaCL, CommitmentLevel};
-use yellowstone_grpc_proto::geyser::{CommitmentLevel as yCL, SubscribeUpdateSlot};
+use solana_sdk::commitment_config::{CommitmentConfig};
+use yellowstone_grpc_proto::geyser::{SubscribeUpdateSlot, SlotStatus as ySS};
 use std::collections::{HashMap, HashSet};
 use std::env;
-use std::str::FromStr;
 use std::time::Duration;
-use anyhow::{anyhow, Context};
+use anyhow::{anyhow};
 use solana_sdk::clock::Slot;
-use solana_sdk::signature::Signature;
 use tokio::sync::broadcast;
-use tokio::time::Instant;
 use tonic::transport::ClientTlsConfig;
 use geyser_grpc_connector::grpc_subscription_autoreconnect_tasks::create_geyser_autoconnection_task_with_mpsc;
 use geyser_grpc_connector::{
     map_commitment_level, GrpcConnectionTimeouts, GrpcSourceConfig, Message,
 };
 use yellowstone_grpc_proto::geyser::subscribe_update::UpdateOneof;
-use yellowstone_grpc_proto::geyser::{SlotStatus, SubscribeRequest, SubscribeRequestFilterSlots, SubscribeRequestFilterTransactions};
+use yellowstone_grpc_proto::geyser::{SubscribeRequest, SubscribeRequestFilterSlots};
+use agave_geyser_plugin_interface::geyser_plugin_interface::SlotStatus;
 
 // 2025-09-09T16:12:30.236552Z  INFO fork_detection: Fork-Detection: Slot 365713185 finalized, parent=365713184
 // 2025-09-09T16:12:30.661459Z  INFO fork_detection: Fork-Detection: Slot 365713186 finalized, parent=365713185
@@ -84,16 +82,25 @@ pub async fn main() {
             Some(Message::GeyserSubscribeUpdate(update)) => match update.update_oneof {
                 Some(UpdateOneof::Slot(update_msg)) => {
 
-                    let slot_status = map_slot_status_to_commitment_level(&update_msg)
-                        .unwrap_or_else(|_| {
-                            panic!("invalid commitment level: status={}", update_msg.status)
-                        });
+                    let Ok(slot_status) = map_slot_status(&update_msg) else {
+                        // warn!("Fork-Detection: Slot {} invalid status {}", update_msg.slot, update_msg.status);
+                        continue 'recv_loop;
+                    };
 
-                    if slot_status == Some(solanaCL::Processed) {
-                        all_slots.insert(update_msg.slot);
+                    if slot_status == SlotStatus::FirstShredReceived {
+                        info!("Fork-Detection: Slot {} first-shred", update_msg.slot);
                     }
 
-                    if slot_status == Some(solanaCL::Finalized) {
+                    if slot_status == SlotStatus::Processed {
+                        all_slots.insert(update_msg.slot);
+                        info!("Fork-Detection: Slot {} processed", update_msg.slot);
+                    }
+
+                    if slot_status == SlotStatus::Confirmed {
+                        info!("Fork-Detection: Slot {} confirmed", update_msg.slot);
+                    }
+
+                    if slot_status == SlotStatus::Rooted {
 
                         let last_finalized_slot = update_msg.parent.expect("parent slot");
                         let diff = update_msg.slot - last_finalized_slot;
@@ -129,7 +136,7 @@ fn build_slot_subscription() -> SubscribeRequest {
         SubscribeRequestFilterSlots {
             filter_by_commitment: None,
             // do not send "new" slot status like FirstShredReceived but only Processed, Confirmed, Finalized
-            interslot_updates: Some(false),
+            interslot_updates: Some(true),
         },
     )]);
 
@@ -140,14 +147,18 @@ fn build_slot_subscription() -> SubscribeRequest {
     }
 }
 
-fn map_slot_status_to_commitment_level(
+fn map_slot_status(
     slot_update: &SubscribeUpdateSlot,
-) -> anyhow::Result<Option<CommitmentLevel>> {
-    yCL::try_from(slot_update.status)
+) -> anyhow::Result<SlotStatus> {
+    ySS::try_from(slot_update.status)
         .map(|v| match v {
-            yCL::Processed => Some(solanaCL::Processed),
-            yCL::Confirmed => Some(solanaCL::Confirmed),
-            yCL::Finalized => Some(solanaCL::Finalized),
+            ySS::SlotFirstShredReceived => SlotStatus::FirstShredReceived,
+            ySS::SlotProcessed => SlotStatus::Processed,
+            ySS::SlotConfirmed => SlotStatus::Confirmed,
+            ySS::SlotFinalized => SlotStatus::Rooted,
+            ySS::SlotCompleted =>  SlotStatus::Completed,
+            ySS::SlotCreatedBank => SlotStatus::CreatedBank,
+            ySS::SlotDead => SlotStatus::Dead("n/a".to_string()),
         })
         .map_err(|_| anyhow!("invalid commitment level"))
 }

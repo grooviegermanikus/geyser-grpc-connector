@@ -78,6 +78,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "agave-geyser-plugin-interface"
+version = "2.2.7"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9540aa46d40eca886bb7716345bfe6051ed39f926962dbe04b7abfc8f9e4f594"
+dependencies = [
+ "log",
+ "solana-clock",
+ "solana-signature",
+ "solana-transaction",
+ "solana-transaction-status",
+ "thiserror 2.0.12",
+]
+
+[[package]]
 name = "agave-precompiles"
 version = "2.2.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1357,6 +1371,7 @@ dependencies = [
 name = "geyser-grpc-connector"
 version = "0.13.1+yellowstone.5.0.0-solana.2.1"
 dependencies = [
+ "agave-geyser-plugin-interface",
  "anyhow",
  "async-stream",
  "base64 0.21.7",
