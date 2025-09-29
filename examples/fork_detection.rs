@@ -16,7 +16,7 @@ use geyser_grpc_connector::{
 use yellowstone_grpc_proto::geyser::subscribe_update::UpdateOneof;
 use yellowstone_grpc_proto::geyser::{SubscribeRequest, SubscribeRequestFilterSlots};
 use agave_geyser_plugin_interface::geyser_plugin_interface::SlotStatus;
-
+use tokio::time::Instant;
 // 2025-09-09T16:12:30.236552Z  INFO fork_detection: Fork-Detection: Slot 365713185 finalized, parent=365713184
 // 2025-09-09T16:12:30.661459Z  INFO fork_detection: Fork-Detection: Slot 365713186 finalized, parent=365713185
 // 2025-09-09T16:12:30.661600Z  INFO fork_detection: Fork-Detection: Slot 365713187 finalized, parent=365713186
@@ -76,11 +76,18 @@ pub async fn main() {
         exit_notify.resubscribe(),
     );
 
-    let mut all_slots: HashSet<Slot> = HashSet::with_capacity(1024);
+    let mut processed_slot_times: HashMap<Slot, Instant> = HashMap::with_capacity(1024);
+
+    // after-the-fact first shred timing
+    let mut first_shred_times: HashMap<Slot, Instant> = HashMap::with_capacity(1024);
+
+    let mut current_slot: Slot = 0;
+
     'recv_loop: loop {
         match slots_rx.recv().await {
             Some(Message::GeyserSubscribeUpdate(update)) => match update.update_oneof {
                 Some(UpdateOneof::Slot(update_msg)) => {
+                    let now = Instant::now();
 
                     let Ok(slot_status) = map_slot_status(&update_msg) else {
                         // warn!("Fork-Detection: Slot {} invalid status {}", update_msg.slot, update_msg.status);
@@ -89,15 +96,25 @@ pub async fn main() {
 
                     if slot_status == SlotStatus::FirstShredReceived {
                         info!("Fork-Detection: Slot {} first-shred", update_msg.slot);
+                        current_slot = update_msg.slot;
+                        let inserted = first_shred_times.insert(update_msg.slot, Instant::now());
+                        assert!(inserted.is_none(), "slot already had first-shred time");
                     }
 
                     if slot_status == SlotStatus::Processed {
-                        all_slots.insert(update_msg.slot);
+                        let inserted = processed_slot_times.insert(update_msg.slot, Instant::now());
+                        assert!(inserted.is_none(), "slot already had processed time");
                         info!("Fork-Detection: Slot {} processed", update_msg.slot);
                     }
 
                     if slot_status == SlotStatus::Confirmed {
                         info!("Fork-Detection: Slot {} confirmed", update_msg.slot);
+
+                        // seeing "confirmed for slot N" means that no tx for N will be accepted. the current Slot which is N+1 (or higher) might take txs.
+                        // note: confirmed slot does not say anything about the current slot
+                        let estimated_leader_slot = update_msg.slot + 1;
+                        info!("Leader schedule: Send tx to leader for slot {} with current slot {}", estimated_leader_slot, current_slot);
+
                     }
 
                     if slot_status == SlotStatus::Rooted {
@@ -111,7 +128,7 @@ pub async fn main() {
                         }
 
                         for checking_slot in (last_finalized_slot+1)..=(update_msg.slot-1) {
-                            let orphan_slot_seen = all_slots.contains(&checking_slot);
+                            let orphan_slot_seen = processed_slot_times.contains_key(&checking_slot);
                             info!("checking slot {}, orphan={}", checking_slot, orphan_slot_seen);
                         }
                     }
