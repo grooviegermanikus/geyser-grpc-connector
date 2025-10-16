@@ -92,7 +92,7 @@ pub async fn main() {
     }
 }
 
-fn build_tx_status_subscription(wallet: Pubkey) -> SubscribeRequest {
+fn build_tx_status_subscription(_wallet: Pubkey) -> SubscribeRequest {
     let mut transactions_status_subs = HashMap::new();
     transactions_status_subs.insert(
         "client".to_string(),
