@@ -17,6 +17,7 @@ use geyser_grpc_connector::{
 };
 use yellowstone_grpc_proto::geyser::subscribe_update::UpdateOneof;
 use yellowstone_grpc_proto::geyser::{SlotStatus, SubscribeRequest, SubscribeRequestFilterSlots, SubscribeRequestFilterTransactions};
+use geyser_grpc_connector::geyser_loop_but_cooler;
 
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
@@ -31,19 +32,19 @@ pub async fn main() {
 
     let grpc_addr_green = env::var("GRPC_ADDR").expect("need grpc url for green");
     let grpc_x_token_green = env::var("GRPC_X_TOKEN").ok();
-    let grpc_addr_blue = env::var("GRPC_ADDR2").expect("need grpc url for blue");
-    let grpc_x_token_blue = env::var("GRPC_X_TOKEN2").ok();
+    // let grpc_addr_blue = env::var("GRPC_ADDR2").expect("need grpc url for blue");
+    // let grpc_x_token_blue = env::var("GRPC_X_TOKEN2").ok();
 
     info!(
         "Using grpc source green on {} ({})",
         grpc_addr_green,
         grpc_x_token_green.is_some()
     );
-    info!(
-        "Using grpc source blue on {} ({})",
-        grpc_addr_blue,
-        grpc_x_token_blue.is_some()
-    );
+    // info!(
+    //     "Using grpc source blue on {} ({})",
+    //     grpc_addr_blue,
+    //     grpc_x_token_blue.is_some()
+    // );
 
     let timeouts = GrpcConnectionTimeouts {
         connect_timeout: Duration::from_secs(5),
@@ -56,8 +57,8 @@ pub async fn main() {
 
     let green_config =
         GrpcSourceConfig::new(grpc_addr_green, grpc_x_token_green, Some(tls_config.clone()), timeouts.clone());
-    let blue_config =
-        GrpcSourceConfig::new(grpc_addr_blue, grpc_x_token_blue, Some(tls_config), timeouts.clone());
+    // let blue_config =
+    //     GrpcSourceConfig::new(grpc_addr_blue, grpc_x_token_blue, Some(tls_config), timeouts.clone());
 
     let (autoconnect_tx, mut slots_rx) = tokio::sync::mpsc::channel(10);
 
@@ -70,16 +71,22 @@ pub async fn main() {
         exit_notify.resubscribe(),
     );
 
-    let _blue_stream_ah = create_geyser_autoconnection_task_with_mpsc(
-        blue_config.clone(),
-        build_tx_status_subscription(),
-        autoconnect_tx.clone(),
-        exit_notify.resubscribe(),
-    );
+    // let _blue_stream_ah = create_geyser_autoconnection_task_with_mpsc(
+    //     blue_config.clone(),
+    //     build_tx_status_subscription(),
+    //     autoconnect_tx.clone(),
+    //     exit_notify.resubscribe(),
+    // );
+
+    // crate::create_geyser_autoconnection_task_with_mpsc()
+
+    let cool = geyser_loop_but_cooler::GeyerLoopButCooler::new();
 
     'recv_loop: loop {
         match slots_rx.recv().await {
             Some(Message::GeyserSubscribeUpdate(update)) => match update.update_oneof {
+
+
                 Some(UpdateOneof::TransactionStatus(msg)) => {
 
                     let sig = Signature::try_from(msg.signature.as_slice()).unwrap();
