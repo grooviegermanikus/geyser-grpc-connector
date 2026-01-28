@@ -42,9 +42,6 @@ impl GeyserLoopButCooler {
         }
     }
 
-    pub fn foobar(&mut self) {
-    }
-
     pub fn consume_move(&mut self, update: SubscribeUpdate) -> Effect {
         self.consume(Box::new(update))
     }
