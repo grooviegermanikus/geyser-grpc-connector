@@ -10,7 +10,6 @@ use log::{info, warn};
 use std::collections::{HashMap, HashSet};
 use std::env;
 use std::time::Duration;
-use solana_sdk::clock::Slot;
 use tokio::sync::broadcast;
 use tonic::transport::ClientTlsConfig;
 use yellowstone_grpc_proto::geyser::subscribe_update::UpdateOneof;
