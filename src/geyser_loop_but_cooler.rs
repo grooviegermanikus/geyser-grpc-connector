@@ -5,7 +5,7 @@ use anyhow::anyhow;
 use solana_clock::Slot;
 use solana_signature::Signature;
 use yellowstone_grpc_proto::geyser::subscribe_update::UpdateOneof;
-use yellowstone_grpc_proto::prelude::SubscribeUpdateTransactionStatus;
+use yellowstone_grpc_proto::prelude::{SubscribeUpdatePing, SubscribeUpdateTransactionStatus};
 
 pub struct MessagesBuffer {
     // TODO consolidate naming: grpc messages vs updates
@@ -50,8 +50,10 @@ impl GeyserLoopButCooler {
                 }
                 let confirmed_slot = msg.slot;
                 // lazyly fall back to empty list
-                let messages = self.buffer.remove(&confirmed_slot).unwrap_or( MessagesBuffer{ grpc_messages: Vec::new() });
+                let mut messages = self.buffer.remove(&confirmed_slot).unwrap_or( MessagesBuffer{ grpc_messages: Vec::new() });
                 // TODO make sure that no data arrives for that slot beyond this point
+
+                messages.grpc_messages.push(update);
 
                 // clean all older slots; could clean up more aggressively but this is safe+good enough
                 self.buffer.retain(|&slot, _| slot > confirmed_slot);
@@ -61,18 +63,11 @@ impl GeyserLoopButCooler {
                 return Effect::EmitConfirmedMessages { confirmed_slot, grpc_messages: messages.grpc_messages  };
 
             }
+            Some(UpdateOneof::Ping(_) | UpdateOneof::Pong(_)) => {
+                return Effect::Noop;
+            }
             // all messages except slot (+ping pong)
             Some(msg) => {
-
-                match msg {
-                    UpdateOneof::Ping(_) => {
-                        return Effect::Noop;
-                    }
-                    UpdateOneof::Pong(_) => {
-                        return Effect::Noop;
-                    }
-                    _ => {}
-                }
 
                 let slot = get_slot(&msg);
                 self.buffer.entry(slot)
@@ -133,7 +128,7 @@ pub fn test_gesyer_loop_but_cooler() {
         panic!()
     };
     assert_eq!(confirmed_slot, 41_999_000);
-    assert!(grpc_messages.is_empty());
+    assert_eq!(grpc_messages.len(), 1); // slot message
 
 
     let sig1 = Signature::from_str("2h6iPLYZEEt8RMY3gGFUqd4Jktrg2fYTCMffifRoQDJWPqLvZ1gRKqpq4e5s8kWrVigkyDXV6xEiw54zuChYBdyB").unwrap();
@@ -154,6 +149,13 @@ pub fn test_gesyer_loop_but_cooler() {
         });
         assert!(matches!(effect, Effect::Noop));
     }
+
+    let effect = cool.consume_move(SubscribeUpdate {
+        filters: vec![],
+        created_at: None,
+        update_oneof: Some(UpdateOneof::Ping(SubscribeUpdatePing {})),
+    });
+    assert!(matches!(effect, Effect::Noop));
 
     let effect = cool.consume_move(SubscribeUpdate {
         filters: vec![],
