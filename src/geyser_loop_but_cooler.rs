@@ -1,9 +1,10 @@
-use std::collections::{BTreeMap, HashMap};
+use std::collections::{BTreeMap, BTreeSet, HashMap};
 use std::str::FromStr;
 use yellowstone_grpc_proto::geyser::{SubscribeUpdateSlot, SlotStatus as ySS, SubscribeUpdate, SlotStatus, CommitmentLevel};
 use anyhow::anyhow;
 use solana_clock::Slot;
 use solana_signature::Signature;
+use tracing::field::debug;
 use yellowstone_grpc_proto::geyser::subscribe_update::UpdateOneof;
 use yellowstone_grpc_proto::prelude::{SubscribeUpdatePing, SubscribeUpdateTransactionStatus};
 
@@ -12,22 +13,31 @@ pub struct MessagesBuffer {
     grpc_messages: Vec<Box<SubscribeUpdate>>,
 }
 
+// note: there is still an ordering problem where data might arrive after slot confirmed message was seen
 pub struct GeyserLoopButCooler {
 
     buffer: BTreeMap<Slot, MessagesBuffer>,
+
+    // maintain a safety window where we emit single messages
+    confirmed_slots: BTreeSet<Slot>,
 
 }
 
 pub enum Effect {
     EmitConfirmedMessages { confirmed_slot: Slot, grpc_messages: Vec<Box<SubscribeUpdate>> },
+    EmitLateConfirmedMessage { confirmed_slot: Slot, grpc_message: Box<SubscribeUpdate> },
     Noop,
 }
+
+// number of slots to emit late messages
+const LATE_MESSAGES_SAFETY_WINDOW: u64 = 64;
 
 impl GeyserLoopButCooler {
 
     pub fn new() -> Self {
         Self {
             buffer: BTreeMap::new(),
+            confirmed_slots: BTreeSet::new(),
         }
     }
 
@@ -60,6 +70,12 @@ impl GeyserLoopButCooler {
 
                 println!("Need to flush messages for slot {} {}", confirmed_slot, messages.grpc_messages.len());
 
+                let was_new = self.confirmed_slots.insert(confirmed_slot);
+                debug_assert!(was_new, "only one confirmed slot message expected");
+
+                // clean up the window of confirmed_slots
+                self.confirmed_slots.retain(|s| s + LATE_MESSAGES_SAFETY_WINDOW >= confirmed_slot);
+
                 return Effect::EmitConfirmedMessages { confirmed_slot, grpc_messages: messages.grpc_messages  };
 
             }
@@ -68,8 +84,12 @@ impl GeyserLoopButCooler {
             }
             // all messages except slot (+ping pong)
             Some(msg) => {
-
                 let slot = get_slot(&msg);
+
+                if self.confirmed_slots.contains(&slot) {
+                    return Effect::EmitLateConfirmedMessage { confirmed_slot: slot, grpc_message: update };
+                }
+
                 self.buffer.entry(slot)
                     .or_insert_with(|| MessagesBuffer { grpc_messages: Vec::with_capacity(64) })
                     .grpc_messages.push(update);
