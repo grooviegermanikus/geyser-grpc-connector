@@ -14,9 +14,7 @@ pub struct MessagesBuffer {
 
 pub struct GeyserLoopButCooler {
 
-    skip_til_this_slot: Option<Slot>,
     buffer: HashMap<Slot, MessagesBuffer>,
-
 
 }
 
@@ -30,7 +28,6 @@ impl GeyserLoopButCooler {
 
     pub fn new() -> Self {
         Self {
-            skip_til_this_slot: None,
             buffer: HashMap::new(),
         }
     }
@@ -45,11 +42,6 @@ impl GeyserLoopButCooler {
             Some(UpdateOneof::Slot(msg)) => {
                 let commitment_status = SlotStatus::try_from(msg.status).expect("status");
 
-                if self.skip_til_this_slot == None && commitment_status == SlotStatus::SlotProcessed {
-                    // special case for proper startup
-                    self.skip_til_this_slot = Some(msg.slot);
-                    return Effect::Noop;
-                }
                 if commitment_status == SlotStatus::SlotProcessed {
                     // make sure the messages is there even if it's empty
                     self.buffer.entry(msg.slot)
@@ -60,15 +52,6 @@ impl GeyserLoopButCooler {
                     return Effect::Noop;
                 }
                 let confirmed_slot = msg.slot;
-                if let Some(skip_slot) = self.skip_til_this_slot {
-                    if msg.slot <= skip_slot {
-                        println!("hold back until slot > {}", skip_slot);
-                        return Effect::Noop;
-                    }
-                } else {
-                    println!("hold back until skip_slot is set");
-                    return Effect::Noop;
-                }
 
                 let messages = self.buffer.remove(&confirmed_slot).expect("must be there");
 
