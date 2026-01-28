@@ -25,6 +25,7 @@ pub struct GeyserLoopButCooler {
 
 pub enum Effect {
     EmitConfirmedMessages { confirmed_slot: Slot, grpc_messages: Vec<Box<SubscribeUpdate>> },
+    // some messages might arrive after confirmed slot was seen
     EmitLateConfirmedMessage { confirmed_slot: Slot, grpc_message: Box<SubscribeUpdate> },
     Noop,
 }
@@ -59,14 +60,15 @@ impl GeyserLoopButCooler {
                     return Effect::Noop;
                 }
                 let confirmed_slot = msg.slot;
-                // lazyly fall back to empty list
+                // lazily fall back to empty list
                 let mut messages = self.buffer.remove(&confirmed_slot).unwrap_or( MessagesBuffer{ grpc_messages: Vec::new() });
-                // TODO make sure that no data arrives for that slot beyond this point
 
                 messages.grpc_messages.push(update);
 
                 // clean all older slots; could clean up more aggressively but this is safe+good enough
                 self.buffer.retain(|&slot, _| slot > confirmed_slot);
+                // we don't expect wide span of process slots around in the future
+                debug_assert!(self.buffer.len() < 10, "buffer should be small");
 
                 println!("Need to flush messages for slot {} {}", confirmed_slot, messages.grpc_messages.len());
 
@@ -75,6 +77,8 @@ impl GeyserLoopButCooler {
 
                 // clean up the window of confirmed_slots
                 self.confirmed_slots.retain(|s| s + LATE_MESSAGES_SAFETY_WINDOW >= confirmed_slot);
+
+
 
                 return Effect::EmitConfirmedMessages { confirmed_slot, grpc_messages: messages.grpc_messages  };
 
@@ -200,5 +204,101 @@ pub fn test_gesyer_loop_but_cooler() {
         })),
     });
     assert!(matches!(effect, Effect::EmitConfirmedMessages{..}));
+
+}
+
+
+#[test]
+pub fn test_emit_late_message() {
+    let mut cool = GeyserLoopButCooler::new();
+
+    let sig1 = Signature::from_str("2h6iPLYZEEt8RMY3gGFUqd4Jktrg2fYTCMffifRoQDJWPqLvZ1gRKqpq4e5s8kWrVigkyDXV6xEiw54zuChYBdyB").unwrap();
+
+    let effect = cool.consume_move(SubscribeUpdate {
+        filters: vec![],
+        created_at: None,
+        update_oneof: Some(UpdateOneof::TransactionStatus(SubscribeUpdateTransactionStatus {
+            slot: 43_000_000,
+            signature: sig1.as_ref().to_vec(),
+            is_vote: false,
+            index: 0,
+            err: None,
+        })),
+    });
+    assert!(matches!(effect, Effect::Noop));
+
+
+
+
+    let effect = cool.consume_move(SubscribeUpdate {
+        filters: vec![],
+        created_at: None,
+        update_oneof: Some(UpdateOneof::Slot(SubscribeUpdateSlot {
+            slot: 43_000_000,
+            parent: None,
+            status: ySS::SlotConfirmed as i32,
+            dead_error: None,
+        })),
+    });
+    let Effect::EmitConfirmedMessages { confirmed_slot, grpc_messages } = effect else {
+        panic!()
+    };
+    assert_eq!(confirmed_slot, 43_000_000);
+    assert_eq!(grpc_messages.len(), 2); // tx+slot message
+
+    let sig3 = Signature::from_str("KQzbyZMUq6ujZL6qxDW2EMNUugvzcpFJSdzTnmhsV8rYgqkwL9rc3uXg1FpGPNKaSJQLmKXTfezJoVdBLEhVa8F").unwrap();
+
+    // insert into next slot
+    let effect = cool.consume_move(SubscribeUpdate {
+        filters: vec![],
+        created_at: None,
+        update_oneof: Some(UpdateOneof::TransactionStatus(SubscribeUpdateTransactionStatus {
+            slot: 43_000_001,
+            signature: sig3.as_ref().to_vec(),
+            is_vote: false,
+            index: 0,
+            err: None,
+        })),
+    });
+    assert!(matches!(effect, Effect::Noop));
+
+
+    let sig_late = Signature::from_str("5QE2kQUiMpv51seq4ShtoaAzdkMT7fzeQ5TvqTPFgNkcahtHSnZudindggjTUXt8uqZGifbWUAmUubdWLhFHz719").unwrap();
+    let effect = cool.consume_move(SubscribeUpdate {
+        filters: vec![],
+        created_at: None,
+        update_oneof: Some(UpdateOneof::TransactionStatus(SubscribeUpdateTransactionStatus {
+            slot: 43_000_000,
+            signature: sig_late.as_ref().to_vec(),
+            is_vote: false,
+            index: 99,
+            err: None,
+        })),
+    });
+
+    let Effect::EmitLateConfirmedMessage {confirmed_slot, grpc_message } = effect else {
+        panic!()
+    };
+    assert_eq!(confirmed_slot, 43_000_000);
+    match grpc_message.update_oneof.unwrap() {
+        UpdateOneof::TransactionStatus(tx_status) => {
+            assert_eq!(tx_status.index, 99);
+        }
+        _ => {}
+    }
+
+    let sig_verylate = Signature::from_str("5QE2kQUiMpv51seq4ShtoaAzdkMT7fzeQ5TvqTPFgNkcahtHSnZudindggjTUXt8uqZGifbWUAmUubdWLhFHz719").unwrap();
+    let effect = cool.consume_move(SubscribeUpdate {
+        filters: vec![],
+        created_at: None,
+        update_oneof: Some(UpdateOneof::TransactionStatus(SubscribeUpdateTransactionStatus {
+            slot: 42_999_000,
+            signature: sig_verylate.as_ref().to_vec(),
+            is_vote: false,
+            index: 77,
+            err: None,
+        })),
+    });
+    assert!(matches!(effect, Effect::Noop));
 
 }
