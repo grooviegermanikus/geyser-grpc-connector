@@ -30,3 +30,35 @@ An example how to use the library is provided in `stream_blocks_mainnet_stream.r
 * Should not be used with commitment level __PROCESSED__ because slot numbers are not monotoic.
 * Library needs messages to be in order and provide slot information to work properly.
 
+## Overhead
+Using this library vs using the `GeyserGrpcClient` directly has some overhead ```but``` it's negligible:
+
+```
+GeyserGrpcClient
+2025-09-25T09:50:40.960949Z  INFO first_shred_latency_plain_client: FIRST_SHRED:369143450
+2025-09-25T09:50:41.265481Z  INFO first_shred_latency_plain_client: FIRST_SHRED:369143451
+2025-09-25T09:50:41.631390Z  INFO first_shred_latency_plain_client: FIRST_SHRED:369143452
+2025-09-25T09:50:41.999025Z  INFO first_shred_latency_plain_client: FIRST_SHRED:369143453
+2025-09-25T09:50:42.381589Z  INFO first_shred_latency_plain_client: FIRST_SHRED:369143454
+2025-09-25T09:50:42.784193Z  INFO first_shred_latency_plain_client: FIRST_SHRED:369143455
+2025-09-25T09:50:43.113931Z  INFO first_shred_latency_plain_client: FIRST_SHRED:369143456
+2025-09-25T09:50:43.483731Z  INFO first_shred_latency_plain_client: FIRST_SHRED:369143457
+2025-09-25T09:50:43.848205Z  INFO first_shred_latency_plain_client: FIRST_SHRED:369143458
+2025-09-25T09:50:44.211674Z  INFO first_shred_latency_plain_client: FIRST_SHRED:369143459
+2025-09-25T09:50:44.670032Z  INFO first_shred_latency_plain_client: FIRST_SHRED:369143460
+
+geyser-grpc-connector
+2025-09-25T09:50:40.960949Z  INFO first_shred_latency_plain_client: FIRST_SHRED:369143450
+2025-09-25T09:50:41.265481Z  INFO first_shred_latency_plain_client: FIRST_SHRED:369143451
+2025-09-25T09:50:41.631390Z  INFO first_shred_latency_plain_client: FIRST_SHRED:369143452
+2025-09-25T09:50:41.999025Z  INFO first_shred_latency_plain_client: FIRST_SHRED:369143453
+2025-09-25T09:50:42.381589Z  INFO first_shred_latency_plain_client: FIRST_SHRED:369143454
+2025-09-25T09:50:42.784193Z  INFO first_shred_latency_plain_client: FIRST_SHRED:369143455
+2025-09-25T09:50:43.113931Z  INFO first_shred_latency_plain_client: FIRST_SHRED:369143456
+2025-09-25T09:50:43.483731Z  INFO first_shred_latency_plain_client: FIRST_SHRED:369143457
+2025-09-25T09:50:43.848205Z  INFO first_shred_latency_plain_client: FIRST_SHRED:369143458
+2025-09-25T09:50:44.211674Z  INFO first_shred_latency_plain_client: FIRST_SHRED:369143459
+2025-09-25T09:50:44.670032Z  INFO first_shred_latency_plain_client: FIRST_SHRED:369143460
+```
+
+The comparison can be reproduced with `examples/first_shred_latency_plain_client.rs` vs `examples/first_shred_latency.rs`.
