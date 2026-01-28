@@ -176,6 +176,6 @@ pub fn test_gesyer_loop_but_cooler() {
             dead_error: None,
         })),
     });
-    assert!(matches!(effect, Effect::EmitConfirmedMessages(_)));
+    assert!(matches!(effect, Effect::EmitConfirmedMessages{..}));
 
 }
