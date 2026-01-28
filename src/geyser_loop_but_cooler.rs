@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 use std::str::FromStr;
 use yellowstone_grpc_proto::geyser::{SubscribeUpdateSlot, SlotStatus as ySS, SubscribeUpdate, SlotStatus, CommitmentLevel};
 use anyhow::anyhow;
@@ -9,18 +9,17 @@ use yellowstone_grpc_proto::prelude::SubscribeUpdateTransactionStatus;
 
 pub struct MessagesBuffer {
     // TODO consolidate naming: grpc messages vs updates
-    grpc_messages: Vec<SubscribeUpdate>,
+    grpc_messages: Vec<Box<SubscribeUpdate>>,
 }
 
 pub struct GeyserLoopButCooler {
 
-    buffer: HashMap<Slot, MessagesBuffer>,
+    buffer: BTreeMap<Slot, MessagesBuffer>,
 
 }
 
 pub enum Effect {
-    // confimred slot + messages
-    EmitConfirmedMessages { confirmed_slot: Slot, grpc_messages: Vec<SubscribeUpdate> },
+    EmitConfirmedMessages { confirmed_slot: Slot, grpc_messages: Vec<Box<SubscribeUpdate>> },
     Noop,
 }
 
@@ -28,14 +27,18 @@ impl GeyserLoopButCooler {
 
     pub fn new() -> Self {
         Self {
-            buffer: HashMap::new(),
+            buffer: BTreeMap::new(),
         }
     }
 
     pub fn foobar(&mut self) {
     }
 
-    pub fn consume(&mut self, update: SubscribeUpdate) -> Effect {
+    pub fn consume_move(&mut self, update: SubscribeUpdate) -> Effect {
+        self.consume(Box::new(update))
+    }
+
+    pub fn consume(&mut self, update: Box<SubscribeUpdate>) -> Effect {
 
         match update.update_oneof.as_ref() {
             // this is important
@@ -43,7 +46,7 @@ impl GeyserLoopButCooler {
                 let commitment_status = SlotStatus::try_from(msg.status).expect("status");
 
                 if commitment_status == SlotStatus::SlotProcessed {
-                    // make sure the messages is there even if it's empty
+                    // make sure the messages vec is there even if it's empty
                     self.buffer.entry(msg.slot)
                         .or_insert_with(|| MessagesBuffer { grpc_messages: Vec::with_capacity(64) });
                     return Effect::Noop;
@@ -52,8 +55,10 @@ impl GeyserLoopButCooler {
                     return Effect::Noop;
                 }
                 let confirmed_slot = msg.slot;
-
                 let messages = self.buffer.remove(&confirmed_slot).expect("must be there");
+
+                // clean all older slots; could clean up more aggressively but this is safe+good enough
+                self.buffer.retain(|&slot, _| slot > confirmed_slot);
 
                 println!("Need to flush messages for slot {} {}", confirmed_slot, messages.grpc_messages.len());
 
@@ -123,7 +128,7 @@ pub fn test_gesyer_loop_but_cooler() {
     let sig3 = Signature::from_str("KQzbyZMUq6ujZL6qxDW2EMNUugvzcpFJSdzTnmhsV8rYgqkwL9rc3uXg1FpGPNKaSJQLmKXTfezJoVdBLEhVa8F").unwrap();
 
     for sig in [sig1, sig2, sig3] {
-        let effect = cool.consume(SubscribeUpdate {
+        let effect = cool.consume_move(SubscribeUpdate {
             filters: vec![],
             created_at: None,
             update_oneof: Some(UpdateOneof::TransactionStatus(SubscribeUpdateTransactionStatus {
@@ -137,7 +142,7 @@ pub fn test_gesyer_loop_but_cooler() {
         assert!(matches!(effect, Effect::Noop));
     }
 
-    let effect = cool.consume(SubscribeUpdate {
+    let effect = cool.consume_move(SubscribeUpdate {
         filters: vec![],
         created_at: None,
         update_oneof: Some(UpdateOneof::Slot(SubscribeUpdateSlot {
@@ -149,7 +154,7 @@ pub fn test_gesyer_loop_but_cooler() {
     });
     assert!(matches!(effect, Effect::Noop));
 
-    let effect = cool.consume(SubscribeUpdate {
+    let effect = cool.consume_move(SubscribeUpdate {
         filters: vec![],
         created_at: None,
         update_oneof: Some(UpdateOneof::Slot(SubscribeUpdateSlot {
