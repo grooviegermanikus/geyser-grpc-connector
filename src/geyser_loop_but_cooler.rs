@@ -45,17 +45,13 @@ impl GeyserLoopButCooler {
             Some(UpdateOneof::Slot(msg)) => {
                 let commitment_status = SlotStatus::try_from(msg.status).expect("status");
 
-                if commitment_status == SlotStatus::SlotProcessed {
-                    // make sure the messages vec is there even if it's empty
-                    self.buffer.entry(msg.slot)
-                        .or_insert_with(|| MessagesBuffer { grpc_messages: Vec::with_capacity(64) });
-                    return Effect::Noop;
-                }
                 if commitment_status != SlotStatus::SlotConfirmed {
                     return Effect::Noop;
                 }
                 let confirmed_slot = msg.slot;
-                let messages = self.buffer.remove(&confirmed_slot).expect("must be there");
+                // lazyly fall back to empty list
+                let messages = self.buffer.remove(&confirmed_slot).unwrap_or( MessagesBuffer{ grpc_messages: Vec::new() });
+                // TODO make sure that no data arrives for that slot beyond this point
 
                 // clean all older slots; could clean up more aggressively but this is safe+good enough
                 self.buffer.retain(|&slot, _| slot > confirmed_slot);
@@ -123,6 +119,23 @@ pub fn test_gesyer_loop_but_cooler() {
 
     let mut cool = GeyserLoopButCooler::new();
 
+    let effect = cool.consume_move(SubscribeUpdate {
+        filters: vec![],
+        created_at: None,
+        update_oneof: Some(UpdateOneof::Slot(SubscribeUpdateSlot {
+            slot: 41_999_000,
+            parent: None,
+            status: ySS::SlotConfirmed as i32,
+            dead_error: None,
+        })),
+    });
+    let Effect::EmitConfirmedMessages{confirmed_slot, grpc_messages} = effect else {
+        panic!()
+    };
+    assert_eq!(confirmed_slot, 41_999_000);
+    assert!(grpc_messages.is_empty());
+
+
     let sig1 = Signature::from_str("2h6iPLYZEEt8RMY3gGFUqd4Jktrg2fYTCMffifRoQDJWPqLvZ1gRKqpq4e5s8kWrVigkyDXV6xEiw54zuChYBdyB").unwrap();
     let sig2 = Signature::from_str("5QE2kQUiMpv51seq4ShtoaAzdkMT7fzeQ5TvqTPFgNkcahtHSnZudindggjTUXt8uqZGifbWUAmUubdWLhFHz719").unwrap();
     let sig3 = Signature::from_str("KQzbyZMUq6ujZL6qxDW2EMNUugvzcpFJSdzTnmhsV8rYgqkwL9rc3uXg1FpGPNKaSJQLmKXTfezJoVdBLEhVa8F").unwrap();
@@ -146,7 +159,7 @@ pub fn test_gesyer_loop_but_cooler() {
         filters: vec![],
         created_at: None,
         update_oneof: Some(UpdateOneof::Slot(SubscribeUpdateSlot {
-            slot: 41_999_999,
+            slot: 42_000_000,
             parent: None,
             status: ySS::SlotProcessed as i32,
             dead_error: None,
