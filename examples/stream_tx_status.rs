@@ -14,7 +14,8 @@ use solana_pubkey::Pubkey;
 use tokio::sync::broadcast;
 use tonic::transport::ClientTlsConfig;
 use yellowstone_grpc_proto::geyser::subscribe_update::UpdateOneof;
-use yellowstone_grpc_proto::geyser::{SubscribeRequest, SubscribeRequestFilterTransactions};
+use yellowstone_grpc_proto::geyser::{SubscribeRequest, SubscribeRequestFilterSlots, SubscribeRequestFilterTransactions};
+use geyser_grpc_connector::geyser_loop_but_cooler::GeyerLoopButCooler;
 
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
@@ -72,17 +73,31 @@ pub async fn main() {
     //     exit_notify.resubscribe(),
     // );
 
+    let mut cool = GeyerLoopButCooler::new();
+
     '_recv_loop: loop {
         match slots_rx.recv().await {
-            Some(Message::GeyserSubscribeUpdate(update)) => match update.update_oneof {
-                Some(UpdateOneof::TransactionStatus(msg)) => {
-                    let sig = Signature::try_from(msg.signature.as_slice()).unwrap();
+            Some(Message::GeyserSubscribeUpdate(update)) => {
 
-                    info!("Received tx status: slot {}, tx: {:?}", msg.slot, sig);
+                let what_to_do = cool.consume(&update);
+                match what_to_do {
+                    geyser_grpc_connector::geyser_loop_but_cooler::Effect::EmitConfirmedMessages(sigs) => {
+                        for sig in sigs {
+                            info!("Emitting confirmed tx: {:?}", sig);
+                        }
+                    }
+                    geyser_grpc_connector::geyser_loop_but_cooler::Effect::Noop => {}
                 }
-                Some(_) => {}
-                None => {}
-            },
+
+                match update.update_oneof {
+                    Some(UpdateOneof::TransactionStatus(msg)) => {
+                        let sig = Signature::try_from(msg.signature.as_slice()).unwrap();
+
+                        println!("Received tx status: slot {}, tx: {:?}", msg.slot, sig);
+                    }
+                    Some(_) => {}
+                    None => {}
+                }},
             None => {
                 log::warn!("multiplexer channel closed - aborting");
                 return;
@@ -93,6 +108,17 @@ pub async fn main() {
 }
 
 fn build_tx_status_subscription(_wallet: Pubkey) -> SubscribeRequest {
+
+    let mut important_slots_sub = HashMap::new();
+
+    important_slots_sub.insert(
+        "slots".to_string(),
+        SubscribeRequestFilterSlots {
+            filter_by_commitment: None,
+            interslot_updates: None,
+        },
+    );
+
     let mut transactions_status_subs = HashMap::new();
     transactions_status_subs.insert(
         "client".to_string(),
@@ -108,6 +134,7 @@ fn build_tx_status_subscription(_wallet: Pubkey) -> SubscribeRequest {
     );
 
     SubscribeRequest {
+        slots: important_slots_sub,
         transactions_status: transactions_status_subs,
         commitment: Some(map_commitment_level(CommitmentConfig::confirmed()) as i32),
         ..Default::default()
