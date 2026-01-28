@@ -1,7 +1,7 @@
 use std::collections::{BTreeMap, BTreeSet, HashMap};
 use std::str::FromStr;
 use yellowstone_grpc_proto::geyser::{SubscribeUpdateSlot, SlotStatus as ySS, SubscribeUpdate, SlotStatus, CommitmentLevel};
-use anyhow::anyhow;
+use anyhow::{anyhow, Context};
 use log::trace;
 use solana_clock::Slot;
 use solana_signature::Signature;
@@ -43,19 +43,18 @@ impl GeyserLoopButCooler {
         }
     }
 
-    pub fn consume_move(&mut self, update: SubscribeUpdate) -> Effect {
+    pub fn consume_move(&mut self, update: SubscribeUpdate) -> anyhow::Result<Effect> {
         self.consume(Box::new(update))
     }
 
-    pub fn consume(&mut self, update: Box<SubscribeUpdate>) -> Effect {
+    pub fn consume(&mut self, update: Box<SubscribeUpdate>) -> anyhow::Result<Effect> {
 
         match update.update_oneof.as_ref() {
-            // this is important
             Some(UpdateOneof::Slot(msg)) => {
-                let commitment_status = SlotStatus::try_from(msg.status).expect("status");
+                let commitment_status = SlotStatus::try_from(msg.status).context("unknown status")?;
 
                 if commitment_status != SlotStatus::SlotConfirmed {
-                    return Effect::Noop;
+                    return Ok(Effect::Noop);
                 }
                 let confirmed_slot = msg.slot;
                 // lazily fall back to empty list
@@ -68,7 +67,6 @@ impl GeyserLoopButCooler {
                 // we don't expect wide span of process slots around in the future
                 debug_assert!(self.buffer.len() < 10, "buffer should be small");
 
-
                 let was_new = self.confirmed_slots.insert(confirmed_slot);
                 debug_assert!(was_new, "only one confirmed slot message expected");
 
@@ -78,28 +76,30 @@ impl GeyserLoopButCooler {
 
                 trace!("Emit {} messages for slot {}", messages.grpc_updates.len(), confirmed_slot);
 
-                return Effect::EmitConfirmedMessages { confirmed_slot, grpc_updates: messages.grpc_updates };
+                return Ok(Effect::EmitConfirmedMessages { confirmed_slot, grpc_updates: messages.grpc_updates });
 
             }
             Some(UpdateOneof::Ping(_) | UpdateOneof::Pong(_)) => {
-                return Effect::Noop;
+                return Ok(Effect::Noop);
             }
             // all messages except slot (+ping pong)
             Some(msg) => {
                 let slot = get_slot(&msg);
 
                 if self.confirmed_slots.contains(&slot) {
-                    return Effect::EmitLateConfirmedMessage { confirmed_slot: slot, grpc_updates: update };
+                    return Ok(Effect::EmitLateConfirmedMessage { confirmed_slot: slot, grpc_updates: update });
                 }
 
                 self.buffer.entry(slot)
                     .or_insert_with(|| MessagesBuffer { grpc_updates: Vec::with_capacity(64) })
                     .grpc_updates.push(update);
             }
-            None => {}
+            None => {
+                // not really expected
+            }
         }
 
-        Effect::Noop
+        Ok(Effect::Noop)
     }
 
 
@@ -146,7 +146,7 @@ pub fn test_simple() {
             dead_error: None,
         })),
     });
-    let Effect::EmitConfirmedMessages{confirmed_slot, grpc_updates: grpc_update } = effect else {
+    let Ok(Effect::EmitConfirmedMessages{confirmed_slot, grpc_updates: grpc_update }) = effect else {
         panic!()
     };
     assert_eq!(confirmed_slot, 41_999_000);
@@ -169,7 +169,7 @@ pub fn test_simple() {
                 err: None,
             })),
         });
-        assert!(matches!(effect, Effect::Noop));
+        assert!(matches!(effect, Ok(Effect::Noop)));
     }
 
     let effect = cool.consume_move(SubscribeUpdate {
@@ -177,7 +177,7 @@ pub fn test_simple() {
         created_at: None,
         update_oneof: Some(UpdateOneof::Ping(SubscribeUpdatePing {})),
     });
-    assert!(matches!(effect, Effect::Noop));
+    assert!(matches!(effect, Ok(Effect::Noop)));
 
     let effect = cool.consume_move(SubscribeUpdate {
         filters: vec![],
@@ -189,7 +189,7 @@ pub fn test_simple() {
             dead_error: None,
         })),
     });
-    assert!(matches!(effect, Effect::Noop));
+    assert!(matches!(effect, Ok(Effect::Noop)));
 
     let effect = cool.consume_move(SubscribeUpdate {
         filters: vec![],
@@ -201,7 +201,7 @@ pub fn test_simple() {
             dead_error: None,
         })),
     });
-    assert!(matches!(effect, Effect::EmitConfirmedMessages{..}));
+    assert!(matches!(effect, Ok(Effect::EmitConfirmedMessages{..})));
 
 }
 
@@ -223,7 +223,7 @@ pub fn test_emit_late_message() {
             err: None,
         })),
     });
-    assert!(matches!(effect, Effect::Noop));
+    assert!(matches!(effect, Ok(Effect::Noop)));
 
 
 
@@ -238,7 +238,7 @@ pub fn test_emit_late_message() {
             dead_error: None,
         })),
     });
-    let Effect::EmitConfirmedMessages { confirmed_slot, grpc_updates: grpc_update } = effect else {
+    let Ok(Effect::EmitConfirmedMessages { confirmed_slot, grpc_updates: grpc_update }) = effect else {
         panic!()
     };
     assert_eq!(confirmed_slot, 43_000_000);
@@ -258,7 +258,7 @@ pub fn test_emit_late_message() {
             err: None,
         })),
     });
-    assert!(matches!(effect, Effect::Noop));
+    assert!(matches!(effect, Ok(Effect::Noop)));
 
 
     let sig_late = Signature::from_str("5QE2kQUiMpv51seq4ShtoaAzdkMT7fzeQ5TvqTPFgNkcahtHSnZudindggjTUXt8uqZGifbWUAmUubdWLhFHz719").unwrap();
@@ -274,7 +274,7 @@ pub fn test_emit_late_message() {
         })),
     });
 
-    let Effect::EmitLateConfirmedMessage {confirmed_slot, grpc_updates: grpc_message } = effect else {
+    let Ok(Effect::EmitLateConfirmedMessage {confirmed_slot, grpc_updates: grpc_message }) = effect else {
         panic!()
     };
     assert_eq!(confirmed_slot, 43_000_000);
@@ -297,6 +297,6 @@ pub fn test_emit_late_message() {
             err: None,
         })),
     });
-    assert!(matches!(effect, Effect::Noop));
+    assert!(matches!(effect, Ok(Effect::Noop)));
 
 }
