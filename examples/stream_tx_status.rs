@@ -128,7 +128,7 @@ pub async fn main() {
 
                     let what_to_do = cool.consume(*update);
                     match what_to_do {
-                        geyser_grpc_connector::geyser_loop_but_cooler::Effect::EmitConfirmedMessages { confirmed_slot, grpc_messages } => {
+                        geyser_grpc_connector::geyser_loop_but_cooler::Effect::EmitConfirmedMessages { confirmed_slot, grpc_updates: grpc_messages } => {
                             println!("cool: slot {} had {} tx statuses", confirmed_slot, grpc_messages.len());
                             for msg in grpc_messages {
 

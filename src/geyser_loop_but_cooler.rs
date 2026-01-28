@@ -2,6 +2,7 @@ use std::collections::{BTreeMap, BTreeSet, HashMap};
 use std::str::FromStr;
 use yellowstone_grpc_proto::geyser::{SubscribeUpdateSlot, SlotStatus as ySS, SubscribeUpdate, SlotStatus, CommitmentLevel};
 use anyhow::anyhow;
+use log::trace;
 use solana_clock::Slot;
 use solana_signature::Signature;
 use tracing::field::debug;
@@ -9,11 +10,11 @@ use yellowstone_grpc_proto::geyser::subscribe_update::UpdateOneof;
 use yellowstone_grpc_proto::prelude::{SubscribeUpdatePing, SubscribeUpdateTransactionStatus};
 
 pub struct MessagesBuffer {
-    // TODO consolidate naming: grpc messages vs updates
-    grpc_messages: Vec<Box<SubscribeUpdate>>,
+    grpc_updates: Vec<Box<SubscribeUpdate>>,
 }
 
 // note: there is still an ordering problem where data might arrive after slot confirmed message was seen
+// - only support confirmed level
 pub struct GeyserLoopButCooler {
 
     buffer: BTreeMap<Slot, MessagesBuffer>,
@@ -24,9 +25,9 @@ pub struct GeyserLoopButCooler {
 }
 
 pub enum Effect {
-    EmitConfirmedMessages { confirmed_slot: Slot, grpc_messages: Vec<Box<SubscribeUpdate>> },
+    EmitConfirmedMessages { confirmed_slot: Slot, grpc_updates: Vec<Box<SubscribeUpdate>> },
     // some messages might arrive after confirmed slot was seen
-    EmitLateConfirmedMessage { confirmed_slot: Slot, grpc_message: Box<SubscribeUpdate> },
+    EmitLateConfirmedMessage { confirmed_slot: Slot, grpc_updates: Box<SubscribeUpdate> },
     Noop,
 }
 
@@ -58,16 +59,15 @@ impl GeyserLoopButCooler {
                 }
                 let confirmed_slot = msg.slot;
                 // lazily fall back to empty list
-                let mut messages = self.buffer.remove(&confirmed_slot).unwrap_or( MessagesBuffer{ grpc_messages: Vec::new() });
+                let mut messages = self.buffer.remove(&confirmed_slot).unwrap_or( MessagesBuffer{ grpc_updates: Vec::new() });
 
-                messages.grpc_messages.push(update);
+                messages.grpc_updates.push(update);
 
                 // clean all older slots; could clean up more aggressively but this is safe+good enough
                 self.buffer.retain(|&slot, _| slot > confirmed_slot);
                 // we don't expect wide span of process slots around in the future
                 debug_assert!(self.buffer.len() < 10, "buffer should be small");
 
-                println!("Need to flush messages for slot {} {}", confirmed_slot, messages.grpc_messages.len());
 
                 let was_new = self.confirmed_slots.insert(confirmed_slot);
                 debug_assert!(was_new, "only one confirmed slot message expected");
@@ -76,8 +76,9 @@ impl GeyserLoopButCooler {
                 self.confirmed_slots.retain(|s| s + LATE_MESSAGES_SAFETY_WINDOW >= confirmed_slot);
 
 
+                trace!("Emit {} messages for slot {}", messages.grpc_updates.len(), confirmed_slot);
 
-                return Effect::EmitConfirmedMessages { confirmed_slot, grpc_messages: messages.grpc_messages  };
+                return Effect::EmitConfirmedMessages { confirmed_slot, grpc_updates: messages.grpc_updates };
 
             }
             Some(UpdateOneof::Ping(_) | UpdateOneof::Pong(_)) => {
@@ -88,12 +89,12 @@ impl GeyserLoopButCooler {
                 let slot = get_slot(&msg);
 
                 if self.confirmed_slots.contains(&slot) {
-                    return Effect::EmitLateConfirmedMessage { confirmed_slot: slot, grpc_message: update };
+                    return Effect::EmitLateConfirmedMessage { confirmed_slot: slot, grpc_updates: update };
                 }
 
                 self.buffer.entry(slot)
-                    .or_insert_with(|| MessagesBuffer { grpc_messages: Vec::with_capacity(64) })
-                    .grpc_messages.push(update);
+                    .or_insert_with(|| MessagesBuffer { grpc_updates: Vec::with_capacity(64) })
+                    .grpc_updates.push(update);
             }
             None => {}
         }
@@ -131,7 +132,7 @@ fn get_slot(update: &UpdateOneof) -> Slot {
 }
 
 #[test]
-pub fn test_gesyer_loop_but_cooler() {
+pub fn test_simple() {
 
     let mut cool = GeyserLoopButCooler::new();
 
@@ -145,11 +146,11 @@ pub fn test_gesyer_loop_but_cooler() {
             dead_error: None,
         })),
     });
-    let Effect::EmitConfirmedMessages{confirmed_slot, grpc_messages} = effect else {
+    let Effect::EmitConfirmedMessages{confirmed_slot, grpc_updates: grpc_update } = effect else {
         panic!()
     };
     assert_eq!(confirmed_slot, 41_999_000);
-    assert_eq!(grpc_messages.len(), 1); // slot message
+    assert_eq!(grpc_update.len(), 1); // slot message
 
 
     let sig1 = Signature::from_str("2h6iPLYZEEt8RMY3gGFUqd4Jktrg2fYTCMffifRoQDJWPqLvZ1gRKqpq4e5s8kWrVigkyDXV6xEiw54zuChYBdyB").unwrap();
@@ -237,11 +238,11 @@ pub fn test_emit_late_message() {
             dead_error: None,
         })),
     });
-    let Effect::EmitConfirmedMessages { confirmed_slot, grpc_messages } = effect else {
+    let Effect::EmitConfirmedMessages { confirmed_slot, grpc_updates: grpc_update } = effect else {
         panic!()
     };
     assert_eq!(confirmed_slot, 43_000_000);
-    assert_eq!(grpc_messages.len(), 2); // tx+slot message
+    assert_eq!(grpc_update.len(), 2); // tx+slot message
 
     let sig3 = Signature::from_str("KQzbyZMUq6ujZL6qxDW2EMNUugvzcpFJSdzTnmhsV8rYgqkwL9rc3uXg1FpGPNKaSJQLmKXTfezJoVdBLEhVa8F").unwrap();
 
@@ -273,7 +274,7 @@ pub fn test_emit_late_message() {
         })),
     });
 
-    let Effect::EmitLateConfirmedMessage {confirmed_slot, grpc_message } = effect else {
+    let Effect::EmitLateConfirmedMessage {confirmed_slot, grpc_updates: grpc_message } = effect else {
         panic!()
     };
     assert_eq!(confirmed_slot, 43_000_000);
