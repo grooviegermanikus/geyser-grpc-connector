@@ -126,7 +126,7 @@ pub async fn main() {
             match messages2_rx.recv().await {
                 Some(Message::GeyserSubscribeUpdate(update)) => {
 
-                    let what_to_do = cool.consume(*update);
+                    let what_to_do = cool.consume(update).unwrap();
                     match what_to_do {
                         geyser_grpc_connector::geyser_loop_but_cooler::Effect::EmitConfirmedMessages { confirmed_slot, grpc_updates: grpc_messages } => {
                             println!("cool: slot {} had {} tx statuses", confirmed_slot, grpc_messages.len());
@@ -140,6 +140,17 @@ pub async fn main() {
                                     }
                                     _ => {}
                                 }
+                            }
+                        }
+                        geyser_grpc_connector::geyser_loop_but_cooler::Effect::EmitLateConfirmedMessage { confirmed_slot, grpc_update } => {
+                            println!("cool: slot {} had late tx status", confirmed_slot);
+                            match grpc_update.update_oneof {
+                                Some(UpdateOneof::TransactionStatus(msg)) => {
+                                    let slot = msg.slot;
+                                    let sig = Signature::try_from(msg.signature.as_slice()).unwrap();
+                                    println!("cool tx {}: {:?}", slot, sig);
+                                }
+                                _ => {}
                             }
                         }
                         geyser_grpc_connector::geyser_loop_but_cooler::Effect::Noop => {}

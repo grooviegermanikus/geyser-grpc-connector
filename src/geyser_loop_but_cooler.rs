@@ -1,7 +1,9 @@
+#![deny(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
+
 use std::collections::{BTreeMap, BTreeSet, HashMap};
 use std::str::FromStr;
 use yellowstone_grpc_proto::geyser::{SubscribeUpdateSlot, SlotStatus as ySS, SubscribeUpdate, SlotStatus, CommitmentLevel};
-use anyhow::{anyhow, Context};
+use anyhow::{anyhow, bail, Context};
 use log::trace;
 use solana_clock::Slot;
 use solana_signature::Signature;
@@ -27,7 +29,7 @@ pub struct GeyserLoopButCooler {
 pub enum Effect {
     EmitConfirmedMessages { confirmed_slot: Slot, grpc_updates: Vec<Box<SubscribeUpdate>> },
     // some messages might arrive after confirmed slot was seen
-    EmitLateConfirmedMessage { confirmed_slot: Slot, grpc_updates: Box<SubscribeUpdate> },
+    EmitLateConfirmedMessage { confirmed_slot: Slot, grpc_update: Box<SubscribeUpdate> },
     Noop,
 }
 
@@ -60,6 +62,7 @@ impl GeyserLoopButCooler {
                 // lazily fall back to empty list
                 let mut messages = self.buffer.remove(&confirmed_slot).unwrap_or( MessagesBuffer{ grpc_updates: Vec::new() });
 
+                // append the slot message
                 messages.grpc_updates.push(update);
 
                 // clean all older slots; could clean up more aggressively but this is safe+good enough
@@ -73,21 +76,21 @@ impl GeyserLoopButCooler {
                 // clean up the window of confirmed_slots
                 self.confirmed_slots.retain(|s| s + LATE_MESSAGES_SAFETY_WINDOW >= confirmed_slot);
 
-
                 trace!("Emit {} messages for slot {}", messages.grpc_updates.len(), confirmed_slot);
-
                 return Ok(Effect::EmitConfirmedMessages { confirmed_slot, grpc_updates: messages.grpc_updates });
 
             }
-            Some(UpdateOneof::Ping(_) | UpdateOneof::Pong(_)) => {
-                return Ok(Effect::Noop);
-            }
             // all messages except slot (+ping pong)
             Some(msg) => {
-                let slot = get_slot(&msg);
+                if matches!(msg, UpdateOneof::Ping(_) | UpdateOneof::Pong(_)) {
+                    return Ok(Effect::Noop);
+                }
+
+                let slot = get_slot(&msg)?;
 
                 if self.confirmed_slots.contains(&slot) {
-                    return Ok(Effect::EmitLateConfirmedMessage { confirmed_slot: slot, grpc_updates: update });
+                    trace!("Emit late message for recently confirmed slot {}", slot);
+                    return Ok(Effect::EmitLateConfirmedMessage { confirmed_slot: slot, grpc_update: update });
                 }
 
                 self.buffer.entry(slot)
@@ -105,8 +108,8 @@ impl GeyserLoopButCooler {
 
 }
 
-fn get_slot(update: &UpdateOneof) -> Slot {
-    match update {
+fn get_slot(update: &UpdateOneof) -> anyhow::Result<Slot> {
+    Ok(match update {
         UpdateOneof::Account(msg) => {
             msg.slot
         }
@@ -126,9 +129,9 @@ fn get_slot(update: &UpdateOneof) -> Slot {
             msg.slot
         }
         _ => {
-            panic!("unsupported update type for get_slot: {:?}", update);
+            bail!("unsupported update type for get_slot: {:?}", update);
         }
-    }
+    })
 }
 
 #[test]
@@ -274,7 +277,7 @@ pub fn test_emit_late_message() {
         })),
     });
 
-    let Ok(Effect::EmitLateConfirmedMessage {confirmed_slot, grpc_updates: grpc_message }) = effect else {
+    let Ok(Effect::EmitLateConfirmedMessage {confirmed_slot, grpc_update: grpc_message }) = effect else {
         panic!()
     };
     assert_eq!(confirmed_slot, 43_000_000);
