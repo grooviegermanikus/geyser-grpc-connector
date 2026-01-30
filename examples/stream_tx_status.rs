@@ -9,12 +9,15 @@ use solana_signature::Signature;
 use std::collections::{BTreeMap, HashMap};
 use std::env;
 use std::str::FromStr;
+use std::sync::Arc;
+use std::sync::atomic::AtomicU64;
 use std::time::Duration;
 use itertools::Itertools;
 use solana_clock::Slot;
 use solana_pubkey::Pubkey;
 use tokio::join;
 use tokio::sync::broadcast;
+use tokio::time::sleep;
 use tonic::transport::ClientTlsConfig;
 use yellowstone_grpc_proto::geyser::subscribe_update::UpdateOneof;
 use yellowstone_grpc_proto::geyser::{SubscribeRequest, SubscribeRequestFilterSlots, SubscribeRequestFilterTransactions, SubscribeUpdate};
@@ -77,8 +80,6 @@ pub async fn main() {
         exit_notify.resubscribe(),
     );
 
-
-
     let task1 = tokio::spawn(async move {
 
         let mut count_per_slot: BTreeMap<Slot, u32> = BTreeMap::new();
@@ -92,15 +93,15 @@ pub async fn main() {
                             let slot = msg.slot;
                             let sig = Signature::try_from(msg.signature.as_slice()).unwrap();
 
-                            println!("tx status {}: {}", slot, sig);
+                            info!("tx status {}: {}", slot, sig);
 
                             if !count_per_slot.contains_key(&slot) {
                                 if let Some(last) = count_per_slot.iter().max() {
-                                    println!("slot {} had {} tx statuses", last.0, last.1);
+                                    info!("slot {} had {} tx statuses", last.0, last.1);
                                 }
                             }
-
                             count_per_slot.entry(slot).and_modify(|c| *c += 1).or_insert(1);
+
 
                         }
                         Some(_) => {}
@@ -129,26 +130,28 @@ pub async fn main() {
                     let what_to_do = cool.consume(update).unwrap();
                     match what_to_do {
                         geyser_grpc_connector::geyser_loop_but_cooler::Effect::EmitConfirmedMessages { confirmed_slot, grpc_updates: grpc_messages } => {
-                            println!("cool: slot {} had {} tx statuses", confirmed_slot, grpc_messages.len());
+                            let mut count: usize = 0;
                             for msg in grpc_messages {
 
                                 match msg.update_oneof {
                                     Some(UpdateOneof::TransactionStatus(msg)) => {
                                         let slot = msg.slot;
                                         let sig = Signature::try_from(msg.signature.as_slice()).unwrap();
-                                        println!("cool tx {}: {:?}", slot, sig);
+                                        info!("cool tx {}: {:?}", slot, sig);
+                                        count += 1;
                                     }
                                     _ => {}
                                 }
                             }
+                            info!("cool: slot {} had {} tx statuses", confirmed_slot, count);
                         }
                         geyser_grpc_connector::geyser_loop_but_cooler::Effect::EmitLateConfirmedMessage { confirmed_slot, grpc_update } => {
-                            println!("cool: slot {} had late tx status", confirmed_slot);
+                            info!("cool: slot {} had late tx status", confirmed_slot);
                             match grpc_update.update_oneof {
                                 Some(UpdateOneof::TransactionStatus(msg)) => {
                                     let slot = msg.slot;
                                     let sig = Signature::try_from(msg.signature.as_slice()).unwrap();
-                                    println!("cool tx {}: {:?}", slot, sig);
+                                    info!("cool tx {}: {:?}", slot, sig);
                                 }
                                 _ => {}
                             }
@@ -167,6 +170,22 @@ pub async fn main() {
 
     });
 
+    // tokio::spawn(async move {
+    //
+    //     loop {
+    //
+    //         let count_naiv = total_naiv_read.load(std::sync::atomic::Ordering::Relaxed);
+    //         let total_cool = total_cool_read.load(std::sync::atomic::Ordering::Relaxed);
+    //
+    //         println!("Total tx statuses processed: naiv={} cool={}", count_naiv, total_cool);
+    //
+    //
+    //         sleep(Duration::from_secs(3)).await;
+    //
+    //     }
+    //
+    // });
+
     join!(task1, task2);
 
 }
@@ -176,7 +195,7 @@ fn build_tx_status_subscription(_wallet: Pubkey) -> SubscribeRequest {
     transactions_status_subs.insert(
         "client".to_string(),
         SubscribeRequestFilterTransactions {
-            vote: Some(false),
+            vote: None,
             // include failed tx as we shouldn't send them again
             failed: None,
             signature: None,
@@ -210,7 +229,7 @@ fn build_tx_status_subscription_cool(_wallet: Pubkey) -> SubscribeRequest {
     transactions_status_subs.insert(
         "client".to_string(),
         SubscribeRequestFilterTransactions {
-            vote: Some(false),
+            vote: None,
             // include failed tx as we shouldn't send them again
             failed: None,
             signature: None,
