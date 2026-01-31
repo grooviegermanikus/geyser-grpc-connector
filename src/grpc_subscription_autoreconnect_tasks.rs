@@ -135,7 +135,7 @@ pub fn create_geyser_autoconnection_task_with_log_tag(
         let mut subscribe_filter_update_rx =
             subscribe_filter_update_rx.take().unwrap_or(dummy_filter_rx);
         let mut state = ConnectionState::NotConnected(1);
-        let mut messages_forwarded = 0;
+        let mut messages_forwarded: u64 = 0;
 
         'main_loop: loop {
             state = match state {
