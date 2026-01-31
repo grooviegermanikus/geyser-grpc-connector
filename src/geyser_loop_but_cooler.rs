@@ -56,6 +56,7 @@ impl GeyserLoopButCooler {
                 let commitment_status = SlotStatus::try_from(msg.status).context("unknown status")?;
 
                 if commitment_status != SlotStatus::SlotConfirmed {
+                    // we do not pass through slot processed+finalized
                     return Ok(Effect::Noop);
                 }
                 let confirmed_slot = msg.slot;
@@ -137,6 +138,7 @@ fn get_slot(update: &UpdateOneof) -> anyhow::Result<Slot> {
 
 #[cfg(test)]
 mod tests {
+    use std::collections::HashMap;
     use std::fs::File;
     use std::io::{BufRead, BufReader};
     use std::path::Path;
@@ -146,6 +148,7 @@ mod tests {
     use anyhow::anyhow;
     use itertools::Itertools;
     use log::trace;
+    use solana_clock::Slot;
     use solana_pubkey::Pubkey;
     use solana_signature::Signature;
     use yellowstone_grpc_proto::geyser::subscribe_update::UpdateOneof;
@@ -323,12 +326,18 @@ mod tests {
     }
 
     #[test]
+    #[ignore] // requires fixture file
     pub fn test_massive_replay() {
         let mut cool = GeyserLoopButCooler::new();
 
-        let lines = read_lines_from_file("/Users/stefan/mango/projects/geyser-grpc-proxy/geyser-trace-100k.csv").unwrap();
-        let iter = read_messages_from_csv_with_line_no(lines, Some(1)).unwrap();
-        for (update, ..) in iter {
+        let lines = read_lines_from_file("../fixtures/geyser_loop/geyser-trace-100k.csv").unwrap();
+        let iter = read_messages_from_csv_with_line_no(lines, Some(1)).unwrap().into_iter()
+            .map(|(update, ..)| update).collect_vec();
+
+        let count_non_slot_per_slot: HashMap<Slot, u64> = HashMap::from([(1212, 12)]);
+
+
+        for update in iter {
             let subscribe_update = SubscribeUpdate {
                 filters: vec![],
                 created_at: None,
@@ -338,9 +347,10 @@ mod tests {
 
             match result {
                 Effect::EmitConfirmedMessages { confirmed_slot, grpc_updates } => {
+                    println!("from slot {} got {} messages", confirmed_slot, grpc_updates.len());
                 }
                 Effect::EmitLateConfirmedMessage { confirmed_slot, grpc_update } => {
-                    println!("from slot {} got lat message", confirmed_slot);
+                    println!("from slot {} got late message", confirmed_slot);
                 }
                 Effect::Noop => {}
             }
