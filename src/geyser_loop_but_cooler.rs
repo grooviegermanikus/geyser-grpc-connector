@@ -323,9 +323,28 @@ mod tests {
     }
 
     #[test]
-    pub fn test_readcvs() {
-        for update in read_lines_from_file("/Users/stefan/mango/projects/geyser-grpc-proxy/geyser-trace-100k.csv").unwrap() {
-            println!("update {:?}", update);
+    pub fn test_massive_replay() {
+        let mut cool = GeyserLoopButCooler::new();
+
+        let lines = read_lines_from_file("/Users/stefan/mango/projects/geyser-grpc-proxy/geyser-trace-100k.csv").unwrap();
+        let iter = read_messages_from_csv_with_line_no(lines, Some(1)).unwrap();
+        for (update, ..) in iter {
+            let subscribe_update = SubscribeUpdate {
+                filters: vec![],
+                created_at: None,
+                update_oneof: Some(update),
+            };
+            let result = cool.consume_move(subscribe_update).unwrap();
+
+            match result {
+                Effect::EmitConfirmedMessages { confirmed_slot, grpc_updates } => {
+                }
+                Effect::EmitLateConfirmedMessage { confirmed_slot, grpc_update } => {
+                    println!("from slot {} got lat message", confirmed_slot);
+                }
+                Effect::Noop => {}
+            }
+
         }
 
     }
@@ -352,7 +371,7 @@ mod tests {
 
         let regex_dumpslot = regex::Regex::new(r"DUMPSLOT (\d+),(\d+),(\d+),(\w+),(\d+)").unwrap();
         let regex_dumpaccount = regex::Regex::new(r"DUMPACCOUNT (\d+),(\d+),(\w+),(\d+)").unwrap();
-        let regex_dumptx = regex::Regex::new(r"DUMPTX (\d+),(\d+),(\w+),(\d+),(\d+)").unwrap();
+        let regex_dumptx = regex::Regex::new(r"DUMPTX (\d+),(\d+),(\w+),(\d+)").unwrap(); // removed last field which was index
 
         let random_pubkey_owner = Pubkey::new_unique().as_ref().to_vec();
 
@@ -446,8 +465,8 @@ mod tests {
                 ));
             }
             if line.starts_with("DUMPTX") {
-                let (_full_match, [source_idx, slot, sig, epoch_ms, index]) =
-                    regex_dumptx.captures(&line).unwrap().extract();
+                let (_full_match, [source_idx, slot, sig, epoch_ms]) =
+                    regex_dumptx.captures(&line).expect(&line).extract();
 
                 let source_idx = source_idx.parse::<u32>().unwrap();
                 if let Some(filter_source_idx) = filter_source_idx {
@@ -457,17 +476,18 @@ mod tests {
                 }
 
                 let slot = slot.parse::<u64>().unwrap();
-                let index = index.parse::<u64>().unwrap();
+                // let index = index.parse::<u64>().unwrap();
+                let index = 4242;
                 let signature = Signature::from_str(sig).unwrap();
 
-                trace!(
-                    "captures {},{},{},{},{}",
-                    source_idx,
-                    slot,
-                    sig,
-                    epoch_ms,
-                    index
-                );
+                // trace!(
+                //     "captures {},{},{},{},{}",
+                //     source_idx,
+                //     slot,
+                //     sig,
+                //     epoch_ms,
+                //     index
+                // );
 
                 let message = yellowstone_grpc_proto::prelude::Message {
                     header: None,
