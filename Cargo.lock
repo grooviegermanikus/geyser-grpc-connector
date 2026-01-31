@@ -1156,27 +1156,16 @@ dependencies = [
 [[package]]
 name = "geyser-grpc-looper"
 version = "0.0.1"
-source = "git+https://github.com/grooviegermanikus/geyser-grpc-looper.git?tag=v0.0.2#6f93b387cd4295b0c4fb92fb98ef1bed33091444"
+source = "git+https://github.com/grooviegermanikus/geyser-grpc-looper.git?tag=v0.0.3#78b29e3478635fae875d57b05e61234c8ac6d09d"
 dependencies = [
  "anyhow",
- "async-stream",
- "futures",
  "itertools 0.10.5",
  "log",
- "merge-streams",
  "solana-clock",
  "solana-commitment-config",
  "solana-signature",
- "tokio",
- "tokio-metrics",
- "tokio-stream",
- "tonic",
- "tonic-build",
- "tonic-health",
- "tonic-prost",
- "tonic-prost-build",
+ "thiserror 2.0.18",
  "tracing",
- "url",
  "yellowstone-grpc-proto",
 ]
 
