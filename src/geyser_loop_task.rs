@@ -4,6 +4,7 @@ use yellowstone_grpc_proto::geyser::subscribe_update::UpdateOneof;
 use crate::geyser_loop_but_cooler::GeyserLoopButCooler;
 use crate::Message;
 
+// TODO add exit_notify
 pub fn start_geyser_loop_adapter(
     mut messages_rx: tokio::sync::mpsc::Receiver<Message>,
     mpsc_downstream_tx: tokio::sync::mpsc::Sender<Message>,

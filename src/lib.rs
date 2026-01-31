@@ -25,6 +25,7 @@ pub mod histogram_percentiles;
 mod obfuscate;
 pub mod yellowstone_grpc_util;
 pub mod geyser_loop_but_cooler;
+mod geyser_loop_task;
 
 pub type AtomicSlot = Arc<AtomicU64>;
 

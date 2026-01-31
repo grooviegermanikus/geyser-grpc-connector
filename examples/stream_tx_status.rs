@@ -1,5 +1,5 @@
 use clap::Parser;
-use geyser_grpc_connector::grpc_subscription_autoreconnect_tasks::create_geyser_autoconnection_task_with_mpsc;
+use geyser_grpc_connector::grpc_subscription_autoreconnect_tasks::{create_geyser_autoconnection_task_geyser_loop, create_geyser_autoconnection_task_with_mpsc};
 use geyser_grpc_connector::{
     map_commitment_level, GrpcConnectionTimeouts, GrpcSourceConfig, Message,
 };
@@ -21,7 +21,7 @@ use tokio::time::sleep;
 use tonic::transport::ClientTlsConfig;
 use yellowstone_grpc_proto::geyser::subscribe_update::UpdateOneof;
 use yellowstone_grpc_proto::geyser::{SubscribeRequest, SubscribeRequestFilterSlots, SubscribeRequestFilterTransactions, SubscribeUpdate};
-use geyser_grpc_connector::geyser_loop_but_cooler::GeyserLoopButCooler;
+use geyser_grpc_connector::geyser_loop_but_cooler::{wrap_subscription_request, GeyserLoopButCooler};
 
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
@@ -73,9 +73,9 @@ pub async fn main() {
         exit_notify.resubscribe(),
     );
 
-    let _blue_stream_ah = create_geyser_autoconnection_task_with_mpsc(
+    let _blue_stream_ah = create_geyser_autoconnection_task_geyser_loop(
         green_config.clone(),
-        build_tx_status_subscription_cool(my_wallet),
+        wrap_subscription_request(build_tx_status_subscription_cool(my_wallet)),
         autoconnect2_tx.clone(),
         exit_notify.resubscribe(),
     );
@@ -93,11 +93,11 @@ pub async fn main() {
                             let slot = msg.slot;
                             let sig = Signature::try_from(msg.signature.as_slice()).unwrap();
 
-                            info!("tx status {}: {}", slot, sig);
+                            // info!("tx status {}: {}", slot, sig);
 
                             if !count_per_slot.contains_key(&slot) {
                                 if let Some(last) = count_per_slot.iter().max() {
-                                    info!("slot {} had {} tx statuses", last.0, last.1);
+                                    // info!("slot {} had {} tx statuses", last.0, last.1);
                                 }
                             }
                             count_per_slot.entry(slot).and_modify(|c| *c += 1).or_insert(1);
@@ -217,13 +217,13 @@ fn build_tx_status_subscription_cool(_wallet: Pubkey) -> SubscribeRequest {
 
     let mut important_slots_sub = HashMap::new();
 
-    important_slots_sub.insert(
-        "slots".to_string(),
-        SubscribeRequestFilterSlots {
-            filter_by_commitment: None,
-            interslot_updates: None,
-        },
-    );
+    // important_slots_sub.insert(
+    //     "slots".to_string(),
+    //     SubscribeRequestFilterSlots {
+    //         filter_by_commitment: None,
+    //         interslot_updates: None,
+    //     },
+    // );
 
     let mut transactions_status_subs = HashMap::new();
     transactions_status_subs.insert(
