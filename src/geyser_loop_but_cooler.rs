@@ -2,14 +2,16 @@
 
 use std::collections::{BTreeMap, BTreeSet, HashMap};
 use std::str::FromStr;
-use yellowstone_grpc_proto::geyser::{SubscribeUpdateSlot, SlotStatus as ySS, SubscribeUpdate, SlotStatus, CommitmentLevel};
+use yellowstone_grpc_proto::geyser::{SubscribeUpdateSlot, SlotStatus as ySS, SubscribeUpdate, SlotStatus, CommitmentLevel, SubscribeRequestFilterSlots};
 use anyhow::{anyhow, bail, Context};
 use log::trace;
 use solana_clock::Slot;
+use solana_commitment_config::CommitmentConfig;
 use solana_signature::Signature;
 use tracing::field::debug;
 use yellowstone_grpc_proto::geyser::subscribe_update::UpdateOneof;
-use yellowstone_grpc_proto::prelude::{SubscribeUpdatePing, SubscribeUpdateTransactionStatus};
+use yellowstone_grpc_proto::prelude::{SubscribeRequest, SubscribeUpdatePing, SubscribeUpdateTransactionStatus};
+use crate::map_commitment_level;
 
 pub struct MessagesBuffer {
     grpc_updates: Vec<Box<SubscribeUpdate>>,
@@ -53,6 +55,9 @@ impl GeyserLoopButCooler {
 
         match update.update_oneof.as_ref() {
             Some(UpdateOneof::Slot(msg)) => {
+                if update.filters != vec!["_magic_confirmed_slots".to_string()] {
+                    bail!("unexpected slot message with filters: {:?}", update.filters);
+                }
                 let commitment_status = SlotStatus::try_from(msg.status).context("unknown status")?;
 
                 if commitment_status != SlotStatus::SlotConfirmed {
@@ -133,6 +138,29 @@ fn get_slot(update: &UpdateOneof) -> anyhow::Result<Slot> {
             bail!("unsupported update type for get_slot: {:?}", update);
         }
     })
+}
+
+
+pub fn build_subscription_request(subscription: SubscribeRequest) -> SubscribeRequest {
+
+    // as slots with filter_by_commitment = false
+
+    // TODO don't allow slot
+    // TODO add our slot subscription
+    // TODO commitment levev
+
+    assert!(subscription.slots.is_empty(), "will implicitly send confirmed slots");
+
+    let magic_slots_subscription = SubscribeRequestFilterSlots { filter_by_commitment: None, interslot_updates: None };
+
+    SubscribeRequest {
+        slots: HashMap::from([
+            ("_magic_confirmed_slots".to_string(), magic_slots_subscription),
+        ]),
+        commitment: Some(map_commitment_level(CommitmentConfig::processed()) as i32),
+        ..subscription
+    }
+
 }
 
 
