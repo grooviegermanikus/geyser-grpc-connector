@@ -21,6 +21,7 @@ use crate::yellowstone_grpc_util::{
     connect_with_timeout_with_buffers, GeyserGrpcClientBufferConfig,
 };
 use crate::{Attempt, GrpcSourceConfig, Message};
+use crate::geyser_loop_task::start_geyser_loop_adapter;
 
 enum ConnectionState<
     S: Stream<Item = Result<SubscribeUpdate, Status>>,
@@ -64,7 +65,6 @@ pub fn create_geyser_autoconnection_task(
     (join_handle, receiver_channel)
 }
 
-// compat
 pub fn create_geyser_autoconnection_task_with_mpsc(
     grpc_source: GrpcSourceConfig,
     subscribe_filter: SubscribeRequest,
@@ -78,6 +78,26 @@ pub fn create_geyser_autoconnection_task_with_mpsc(
         exit_notify,
         None,
     )
+}
+
+pub fn create_geyser_autoconnection_task_geyser_loop(
+    grpc_source: GrpcSourceConfig,
+    subscribe_filter: SubscribeRequest,
+    mpsc_downstream: mpsc::Sender<Message>,
+    exit_notify: broadcast::Receiver<()>,
+) -> JoinHandle<()> {
+    let (autoconnect_tx, messages_rx) = tokio::sync::mpsc::channel(1024);
+    let jh = create_geyser_autoconnection_task_with_updater(
+        grpc_source,
+        subscribe_filter,
+        autoconnect_tx,
+        exit_notify,
+        None,
+    );
+
+    start_geyser_loop_adapter(messages_rx, mpsc_downstream);
+
+    jh
 }
 
 // compat
