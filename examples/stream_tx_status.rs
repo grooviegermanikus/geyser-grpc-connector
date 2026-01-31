@@ -12,6 +12,8 @@ use std::str::FromStr;
 use std::sync::Arc;
 use std::sync::atomic::AtomicU64;
 use std::time::Duration;
+use geyser_grpc_looper::geyser_looper::{Effect, GeyserLooper};
+use geyser_grpc_looper::LooperSubscribeRequest;
 use itertools::Itertools;
 use solana_clock::Slot;
 use solana_pubkey::Pubkey;
@@ -21,7 +23,6 @@ use tokio::time::sleep;
 use tonic::transport::ClientTlsConfig;
 use yellowstone_grpc_proto::geyser::subscribe_update::UpdateOneof;
 use yellowstone_grpc_proto::geyser::{SubscribeRequest, SubscribeRequestFilterSlots, SubscribeRequestFilterTransactions, SubscribeUpdate};
-use geyser_grpc_connector::geyser_loop_but_cooler::{wrap_subscription_request, GeyserLoopButCooler};
 
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
@@ -75,7 +76,7 @@ pub async fn main() {
 
     let _blue_stream_ah = create_geyser_autoconnection_task_geyser_loop(
         green_config.clone(),
-        wrap_subscription_request(build_tx_status_subscription_cool(my_wallet)),
+        build_tx_status_subscription_cool(my_wallet),
         autoconnect2_tx.clone(),
         exit_notify.resubscribe(),
     );
@@ -121,7 +122,7 @@ pub async fn main() {
     let task2 = tokio::spawn(async move {
 
 
-        let mut cool = GeyserLoopButCooler::new();
+        let mut cool = GeyserLooper::new();
 
         '_recv_loop: loop {
             match messages2_rx.recv().await {
@@ -129,7 +130,7 @@ pub async fn main() {
 
                     let what_to_do = cool.consume(update).unwrap();
                     match what_to_do {
-                        geyser_grpc_connector::geyser_loop_but_cooler::Effect::EmitConfirmedMessages { confirmed_slot, grpc_updates: grpc_messages } => {
+                        Effect::EmitConfirmedMessages { confirmed_slot, grpc_updates: grpc_messages } => {
                             let mut count: usize = 0;
                             for msg in grpc_messages {
 
@@ -145,7 +146,7 @@ pub async fn main() {
                             }
                             info!("cool: slot {} had {} tx statuses", confirmed_slot, count);
                         }
-                        geyser_grpc_connector::geyser_loop_but_cooler::Effect::EmitLateConfirmedMessage { confirmed_slot, grpc_update } => {
+                        Effect::EmitLateConfirmedMessage { confirmed_slot, grpc_update } => {
                             info!("cool: slot {} had late tx status", confirmed_slot);
                             match grpc_update.update_oneof {
                                 Some(UpdateOneof::TransactionStatus(msg)) => {
@@ -156,7 +157,7 @@ pub async fn main() {
                                 _ => {}
                             }
                         }
-                        geyser_grpc_connector::geyser_loop_but_cooler::Effect::Noop => {}
+                        Effect::Noop => {}
                     }
 
                 },
@@ -213,7 +214,7 @@ fn build_tx_status_subscription(_wallet: Pubkey) -> SubscribeRequest {
 }
 
 
-fn build_tx_status_subscription_cool(_wallet: Pubkey) -> SubscribeRequest {
+fn build_tx_status_subscription_cool(_wallet: Pubkey) -> LooperSubscribeRequest {
 
     let mut important_slots_sub = HashMap::new();
 
@@ -244,5 +245,5 @@ fn build_tx_status_subscription_cool(_wallet: Pubkey) -> SubscribeRequest {
         transactions_status: transactions_status_subs,
         commitment: Some(map_commitment_level(CommitmentConfig::processed()) as i32),
         ..Default::default()
-    }
+    }.try_into().unwrap()
 }

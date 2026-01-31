@@ -9,8 +9,12 @@ authors = ["GroovieGermanikus <groovie@mango.markets>"]
 repository = "https://github.com/blockworks-foundation/geyser-grpc-connector"
 
 [dependencies]
-yellowstone-grpc-client = { git = "https://github.com/rpcpool/yellowstone-grpc.git", tag = "v10.0.0+solana.3.0.6" }
-yellowstone-grpc-proto = { git = "https://github.com/rpcpool/yellowstone-grpc.git", tag = "v10.0.0+solana.3.0.6" }
+#yellowstone-grpc-client = { git = "https://github.com/rpcpool/yellowstone-grpc.git", tag = "v10.0.0+solana.3.0.6" }
+#yellowstone-grpc-proto = { git = "https://github.com/rpcpool/yellowstone-grpc.git", tag = "v10.0.0+solana.3.0.6" }
+yellowstone-grpc-client = "10.1.1"
+yellowstone-grpc-proto = "10.1.1"
+
+geyser-grpc-looper = { git = "https://github.com/grooviegermanikus/geyser-grpc-looper.git", tag = "v0.0.2" }
 
 # required
 solana-commitment-config = "3"

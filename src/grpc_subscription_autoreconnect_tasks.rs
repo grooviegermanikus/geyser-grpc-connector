@@ -4,6 +4,7 @@ use std::future::Future;
 use std::time::Duration;
 
 use futures::{Sink, SinkExt, Stream, StreamExt};
+use geyser_grpc_looper::LooperSubscribeRequest;
 use log::{debug, error, info, log, trace, warn, Level};
 use tokio::select;
 use tokio::sync::broadcast;
@@ -82,14 +83,14 @@ pub fn create_geyser_autoconnection_task_with_mpsc(
 
 pub fn create_geyser_autoconnection_task_geyser_loop(
     grpc_source: GrpcSourceConfig,
-    subscribe_filter: SubscribeRequest,
+    subscribe_filter: LooperSubscribeRequest,
     mpsc_downstream: mpsc::Sender<Message>,
     exit_notify: broadcast::Receiver<()>,
 ) -> JoinHandle<()> {
     let (autoconnect_tx, messages_rx) = tokio::sync::mpsc::channel(1024);
     let jh = create_geyser_autoconnection_task_with_updater(
         grpc_source,
-        subscribe_filter,
+        subscribe_filter.into(),
         autoconnect_tx,
         exit_notify,
         None,

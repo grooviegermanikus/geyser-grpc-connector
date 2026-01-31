@@ -1,7 +1,7 @@
+use geyser_grpc_looper::geyser_looper::{Effect, GeyserLooper};
 use log::info;
 use solana_signature::Signature;
 use yellowstone_grpc_proto::geyser::subscribe_update::UpdateOneof;
-use crate::geyser_loop_but_cooler::GeyserLoopButCooler;
 use crate::Message;
 
 // TODO add exit_notify
@@ -13,7 +13,7 @@ pub fn start_geyser_loop_adapter(
 
     tokio::spawn(async move {
 
-        let mut cool = GeyserLoopButCooler::new();
+        let mut cool = GeyserLooper::new();
 
         '_recv_loop: loop {
             match messages_rx.recv().await {
@@ -21,7 +21,7 @@ pub fn start_geyser_loop_adapter(
 
                     let what_to_do = cool.consume(update).unwrap();
                     match what_to_do {
-                        crate::geyser_loop_but_cooler::Effect::EmitConfirmedMessages { confirmed_slot, grpc_updates: grpc_messages } => {
+                        Effect::EmitConfirmedMessages { confirmed_slot, grpc_updates: grpc_messages } => {
                             let mut count: usize = 0;
                             for msg in grpc_messages {
                                 // TODO handle close
@@ -32,7 +32,7 @@ pub fn start_geyser_loop_adapter(
                             }
                             info!("cool: slot {} had {} tx statuses", confirmed_slot, count);
                         }
-                        crate::geyser_loop_but_cooler::Effect::EmitLateConfirmedMessage { confirmed_slot, grpc_update } => {
+                        Effect::EmitLateConfirmedMessage { confirmed_slot, grpc_update } => {
                             info!("cool: slot {} had late tx status", confirmed_slot);
                             // TODO handle close
                             let result = mpsc_downstream_tx.send(Message::GeyserSubscribeUpdate(grpc_update)).await;
@@ -40,7 +40,7 @@ pub fn start_geyser_loop_adapter(
                                 break '_recv_loop;
                             }
                         }
-                        crate::geyser_loop_but_cooler::Effect::Noop => {}
+                        Effect::Noop => {}
                     }
 
                 },
