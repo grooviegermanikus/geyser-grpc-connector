@@ -25,6 +25,8 @@ pub mod histogram_percentiles;
 mod obfuscate;
 pub mod yellowstone_grpc_util;
 
+pub use yellowstone_grpc_proto::{geyser, convert_from, convert_to};
+
 pub type AtomicSlot = Arc<AtomicU64>;
 
 // 1-based attempt counter
