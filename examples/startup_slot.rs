@@ -24,7 +24,7 @@ pub async fn startup(
             continue;
         }
 
-        let requested_slot = requested_slot.unwrap_or(slot);
+        let requested_slot = *requested_slot.get_or_insert(slot);
 
         if slot != requested_slot {
             info!("DONE");
