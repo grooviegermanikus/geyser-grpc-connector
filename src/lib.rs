@@ -25,7 +25,7 @@ pub mod histogram_percentiles;
 mod obfuscate;
 pub mod yellowstone_grpc_util;
 
-pub use yellowstone_grpc_proto::{convert_from, convert_to, geyser};
+pub use yellowstone_grpc_proto::{convert_from, convert_to, geyser as yellowstone_proto};
 
 pub type AtomicSlot = Arc<AtomicU64>;
 
