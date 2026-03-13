@@ -9,12 +9,11 @@ authors = ["GroovieGermanikus <groovie@mango.markets>"]
 repository = "https://github.com/blockworks-foundation/geyser-grpc-connector"
 
 [dependencies]
-yellowstone-grpc-client = { git = "https://github.com/rpcpool/yellowstone-grpc.git", tag = "v10.0.0+solana.3.0.6" }
-yellowstone-grpc-proto = { git = "https://github.com/rpcpool/yellowstone-grpc.git", tag = "v10.0.0+solana.3.0.6" }
+yellowstone-grpc-client = "11"
+yellowstone-grpc-proto = "11"
 
 # required
-solana-commitment-config = "3"
-solana-clock = "3"
+solana-commitment-config = "3.1"
 
 url = "2.5.0"
 async-stream = "0.3.5"
@@ -37,19 +36,19 @@ tonic-health = "~0.14.0"
 [dev-dependencies]
 tracing-subscriber = "0.3.16"
 solana-logger = "3"
-solana-account-decoder = "~3.0.6"
-solana-signature = "3"
-solana-message = "3"
-solana-transaction = "3"
+solana-account-decoder = "~3.1"
+solana-signature = "3.1"
+solana-message = "3.1"
+solana-transaction = "3.1"
 solana-pubkey = "3"
-solana-hash = "3"
-solana-compute-budget = "3"
+solana-hash = "3.1"
+solana-compute-budget = "3.1"
 solana-compute-budget-interface = { version = "3", features = ["borsh"] }
-solana-sdk-ids = "3"
+solana-sdk-ids = "3.1"
 solana-borsh = "3"
-solana-bincode = "3"
-solana-vote = "3"
-solana-vote-interface = "3"
+solana-bincode = "3.1"
+solana-vote = "3.1"
+solana-vote-interface = "5"
 agave-geyser-plugin-interface = "~2.2.7"
 
 rustls = { version = "0.23", features = ["aws_lc_rs"] }
