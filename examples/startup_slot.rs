@@ -1,6 +1,6 @@
 use log::info;
-use solana_sdk::clock::Slot;
-use solana_sdk::transaction::VersionedTransaction;
+use solana_clock::Slot;
+use solana_transaction::versioned::VersionedTransaction;
 use tokio::sync::mpsc;
 
 pub fn main() {

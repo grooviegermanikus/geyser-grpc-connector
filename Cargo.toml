@@ -14,6 +14,7 @@ yellowstone-grpc-proto = "11"
 
 # required
 solana-commitment-config = "3.1"
+solana-clock = "3"
 
 url = "2.5.0"
 async-stream = "0.3.5"
@@ -48,7 +49,7 @@ solana-sdk-ids = "3.1"
 solana-borsh = "3"
 solana-bincode = "3.1"
 solana-vote = "3.1"
-solana-vote-interface = "5"
+solana-vote-interface = { version = "5", features = ["serde"] }
 agave-geyser-plugin-interface = "~2.2.7"
 
 rustls = { version = "0.23", features = ["aws_lc_rs"] }
