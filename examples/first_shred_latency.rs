@@ -1,22 +1,15 @@
-/// logs first shred of slot seen from gRPC - used to compare with validator block production (from logs)
-
-use anyhow::anyhow;
 use clap::Parser;
 use geyser_grpc_connector::grpc_subscription_autoreconnect_tasks::create_geyser_autoconnection_task_with_mpsc;
-use geyser_grpc_connector::{
-    map_commitment_level, GrpcConnectionTimeouts, GrpcSourceConfig, Message,
-};
-use log::{info, warn};
-use std::collections::{HashMap, HashSet};
+use geyser_grpc_connector::{GrpcConnectionTimeouts, GrpcSourceConfig, Message};
+use log::info;
+use std::collections::HashMap;
 use std::env;
 use std::time::Duration;
-use solana_clock::Slot;
 use tokio::sync::broadcast;
 use tonic::transport::ClientTlsConfig;
 use yellowstone_grpc_proto::geyser::subscribe_update::UpdateOneof;
-use yellowstone_grpc_proto::geyser::{CommitmentLevel as yCL, SlotStatus, SubscribeUpdateSlot};
+use yellowstone_grpc_proto::geyser::SlotStatus;
 use yellowstone_grpc_proto::geyser::{SubscribeRequest, SubscribeRequestFilterSlots};
-
 
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
@@ -68,13 +61,9 @@ pub async fn main() {
         match slots_rx.recv().await {
             Some(Message::GeyserSubscribeUpdate(update)) => match update.update_oneof {
                 Some(UpdateOneof::Slot(update_msg)) => {
-
-
                     if update_msg.status == SlotStatus::SlotFirstShredReceived as i32 {
                         info!("FIRST_SHRED:{}", update_msg.slot)
                     }
-
-
                 }
                 Some(_) => {}
                 None => {}
@@ -102,4 +91,3 @@ fn build_slot_subscription() -> SubscribeRequest {
         ..Default::default()
     }
 }
-

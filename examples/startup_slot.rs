@@ -3,13 +3,9 @@ use solana_clock::Slot;
 use solana_transaction::versioned::VersionedTransaction;
 use tokio::sync::mpsc;
 
-pub fn main() {
-}
+pub fn main() {}
 
-pub async fn startup(
-    mut rx: mpsc::Receiver<(Slot, VersionedTransaction)>
-) {
-
+pub async fn startup(mut rx: mpsc::Receiver<(Slot, VersionedTransaction)>) {
     let mut startup_slot = None::<Slot>;
     let mut requested_slot = None::<Slot>;
     let mut transactions: Vec<VersionedTransaction> = vec![];
@@ -31,9 +27,6 @@ pub async fn startup(
             break;
         }
 
-
         transactions.push(tx);
-
     }
-
 }
