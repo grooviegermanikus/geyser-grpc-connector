@@ -23,8 +23,7 @@ pub struct HistValue {
     pub value: f64,
 }
 
-/// `quantile` function is the same as the median if q=50, the same as the minimum if q=0 and the same as the maximum if q=100.
-
+// `quantile` function is the same as the median if q=50, the same as the minimum if q=0 and the same as the maximum if q=100.
 pub fn calculate_percentiles(input: &[f64]) -> Percentiles {
     if input.is_empty() {
         // note: percentile for empty array is undefined

@@ -1,6 +1,6 @@
 [package]
 name = "geyser-grpc-connector"
-version = "0.13.1+yellowstone.5.0.0-solana.2.1"
+version = "0.13.1+yellowstone.10.0.0-solana.3.0"
 edition = "2021"
 
 description = "Multiplexing and Reconnection on Yellowstone gRPC Geyser client streaming"
@@ -9,11 +9,12 @@ authors = ["GroovieGermanikus <groovie@mango.markets>"]
 repository = "https://github.com/blockworks-foundation/geyser-grpc-connector"
 
 [dependencies]
-yellowstone-grpc-client = { version = "6.0.0", git = "https://github.com/rpcpool/yellowstone-grpc.git", tag = "v6.0.0+solana.2.2.12" }
-yellowstone-grpc-proto = { version = "6.0.0", git = "https://github.com/rpcpool/yellowstone-grpc.git", tag = "v6.0.0+solana.2.2.12" }
+yellowstone-grpc-client = { git = "https://github.com/rpcpool/yellowstone-grpc.git", tag = "v10.0.0+solana.3.0.6" }
+yellowstone-grpc-proto = { git = "https://github.com/rpcpool/yellowstone-grpc.git", tag = "v10.0.0+solana.3.0.6" }
 
-# required for CommitmentConfig
-solana-sdk = "~2.2.2"
+# required
+solana-commitment-config = "3"
+solana-clock = "3"
 
 url = "2.5.0"
 async-stream = "0.3.5"
@@ -26,15 +27,33 @@ log = "0.4.17"
 tracing = "0.1.37"
 itertools = "0.10.5"
 
-tonic = "0.12"
-tonic-health = "0.12"
+tokio-stream = "~0.1.17"
+tonic = "~0.14.0"
+tonic-build = "~0.14.0"
+tonic-prost = "~0.14.0"
+tonic-prost-build = "~0.14.0"
+tonic-health = "~0.14.0"
 
 [dev-dependencies]
 tracing-subscriber = "0.3.16"
-solana-logger = "2"
-solana-account-decoder = "~2.2.7"
+solana-logger = "3"
+solana-account-decoder = "~3.0.6"
+solana-signature = "3"
+solana-message = "3"
+solana-transaction = "3"
+solana-pubkey = "3"
+solana-hash = "3"
+solana-compute-budget = "3"
+solana-compute-budget-interface = { version = "3", features = ["borsh"] }
+solana-sdk-ids = "3"
+solana-borsh = "3"
+solana-bincode = "3"
+solana-vote = "3"
+solana-vote-interface = "3"
 agave-geyser-plugin-interface = "~2.2.7"
 
+rustls = { version = "0.23", features = ["aws_lc_rs"] }
+bs58 = "0.5.1"
 base64 = "0.21.5"
 bincode = "1.3.3"
 csv = "1.3.0"
@@ -44,3 +63,29 @@ regex = "1.10.4"
 clap = { version = "4.2", features = ["derive"] }
 
 # patch curve25519-dalek is gone
+
+[lints.clippy]
+# should make procedural code more readable
+needless_return = "allow"
+# allow explicit testing
+bool_assert_comparison = "allow"
+# allow `len() checks`
+len_zero = "allow"
+# allow to use `match` to make code look consistent
+single_match = "allow"
+# allow use of base struct; needed for forward compatibility
+needless_update = "allow"
+# allow explict impl of `Default` trait
+derivable_impls = "allow"
+# allow +1 comparison
+int_plus_one = "allow"
+# allow structured `if`
+collapsible_if = "allow"
+# force use of `Arc::clone(p)` for clarity
+#clone_on_ref_ptr = "deny"
+# ensures that `const` is used where possible
+missing_const_for_fn = "deny"
+# prefer `copy` over reference for small types
+trivially_copy_pass_by_ref = "deny"
+# allow if-else chains for clarity
+comparison_chain = "allow"

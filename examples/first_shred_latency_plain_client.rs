@@ -11,7 +11,7 @@ use std::collections::{HashMap, HashSet};
 use std::env;
 use std::time::Duration;
 use futures::{SinkExt, StreamExt};
-use solana_sdk::clock::Slot;
+use solana_clock::Slot;
 use tokio::sync::broadcast;
 use tonic::transport::ClientTlsConfig;
 use yellowstone_grpc_client::GeyserGrpcClient;

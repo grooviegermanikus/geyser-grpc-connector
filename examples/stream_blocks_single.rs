@@ -1,8 +1,8 @@
 use futures::{Stream, StreamExt};
 use log::info;
-use solana_sdk::clock::Slot;
-use solana_sdk::commitment_config::CommitmentConfig;
-use solana_sdk::pubkey::Pubkey;
+use solana_clock::Slot;
+use solana_commitment_config::CommitmentConfig;
+use solana_pubkey::Pubkey;
 use std::env;
 use std::pin::pin;
 

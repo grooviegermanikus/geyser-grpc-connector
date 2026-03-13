@@ -4,27 +4,23 @@
 // ```
 //
 
+use itertools::Itertools;
 use log::{info, trace};
-use solana_account_decoder::parse_token::spl_token_ids;
-use solana_sdk::clock::{Slot, UnixTimestamp};
-use solana_sdk::pubkey::Pubkey;
+use solana_clock::Slot;
+use solana_pubkey::Pubkey;
 use std::collections::HashMap;
 use std::env;
-use std::str::FromStr;
 use std::sync::atomic::AtomicU64;
 use std::sync::Arc;
-use std::time::{Instant, SystemTime, UNIX_EPOCH};
-use itertools::Itertools;
-use tokio::sync::mpsc::{Receiver, Sender};
+use std::time::Instant;
+use tokio::sync::mpsc::Receiver;
 
 use geyser_grpc_connector::grpc_subscription_autoreconnect_tasks::create_geyser_autoconnection_task_with_mpsc;
 use geyser_grpc_connector::{GrpcConnectionTimeouts, GrpcSourceConfig, Message};
 use tokio::time::{sleep, Duration};
 use tonic::transport::ClientTlsConfig;
 use yellowstone_grpc_proto::geyser::subscribe_update::UpdateOneof;
-use yellowstone_grpc_proto::geyser::{SubscribeRequest, SubscribeRequestFilterAccounts, SubscribeRequestFilterAccountsFilter, SubscribeRequestFilterAccountsFilterMemcmp, SubscribeRequestFilterBlocksMeta, SubscribeRequestFilterSlots};
-use yellowstone_grpc_proto::geyser::subscribe_request_filter_accounts_filter::Filter::Memcmp;
-use yellowstone_grpc_proto::geyser::subscribe_request_filter_accounts_filter_memcmp::Data::Base58;
+use yellowstone_grpc_proto::geyser::{SubscribeRequest, SubscribeRequestFilterAccounts};
 
 type AtomicSlot = Arc<AtomicU64>;
 
@@ -55,7 +51,7 @@ pub async fn main() {
 
     let (autoconnect_tx, geyser_messages_rx) = tokio::sync::mpsc::channel(10);
     let (_exit_tx, exit_rx) = tokio::sync::broadcast::channel::<()>(1);
-    let (subscribe_filter_update_tx, mut _subscribe_filter_update_rx) =
+    let (_subscribe_filter_update_tx, mut _subscribe_filter_update_rx) =
         tokio::sync::mpsc::channel::<SubscribeRequest>(1);
 
     let _jh = create_geyser_autoconnection_task_with_mpsc(
@@ -78,7 +74,6 @@ fn start_tracking_account_consumer(
     _current_processed_slot: Arc<AtomicU64>,
 ) {
     tokio::spawn(async move {
-
         let mut total_bytes_received: u64 = 0;
         let mut blacklisted_bytes: u64 = 0;
 
@@ -91,7 +86,7 @@ fn start_tracking_account_consumer(
         let mut last_prune: Slot = 0;
         let mut last_print: Slot = 0;
 
-        'stream_loop: loop {
+        '_stream_loop: loop {
             match geyser_messages_rx.recv().await {
                 Some(Message::GeyserSubscribeUpdate(update)) => match update.update_oneof {
                     Some(UpdateOneof::Account(update)) => {
@@ -104,18 +99,17 @@ fn start_tracking_account_consumer(
 
                         total_bytes_received += account_info.data.len() as u64;
 
-
                         // TODO
-                        if is_blacklisted( &account_pk_str, &account_owner_pk_str) {
+                        if is_blacklisted(&account_pk_str, &account_owner_pk_str) {
                             blacklisted_bytes += account_info.data.len() as u64;
                         }
 
                         // if exclude_from_analysis(&account_pk_str, &account_owner_pk_str) {
-                            // info!(
-                            //     "WHITELIST Account update: slot: {}, account_pk: {}, account_owner_pk: {}, data.len: {}",
-                            //     slot, account_pk, account_owner_pk, account_info.data.len()
-                            // );
-                            // continue 'stream_loop;
+                        // info!(
+                        //     "WHITELIST Account update: slot: {}, account_pk: {}, account_owner_pk: {}, data.len: {}",
+                        //     slot, account_pk, account_owner_pk, account_info.data.len()
+                        // );
+                        // continue 'stream_loop;
                         // }
 
                         if slot > last_prune + 100 {
@@ -129,21 +123,25 @@ fn start_tracking_account_consumer(
                         //     slot, account_pk, account_owner_pk, account_info.data.len()
                         // );
 
-                        if  account_info.data.len() > 500_000 {
+                        if account_info.data.len() > 500_000 {
                             info!("LARGE Account update: slot: {}, account_pk: {}, account_owner_pk: {}, data.len: {}",
                                 slot, account_pk, account_owner_pk, account_info.data.len()
                             );
                         }
 
                         {
-                            size_per_pubkey.entry(account_pk)
+                            size_per_pubkey
+                                .entry(account_pk)
                                 .and_modify(|e| *e += account_info.data.len() as u64)
                                 .or_insert(account_info.data.len() as u64);
-                            owner_by_pubkey.entry(account_pk).or_insert(account_owner_pk);
+                            owner_by_pubkey
+                                .entry(account_pk)
+                                .or_insert(account_owner_pk);
                         }
 
                         {
-                            size_per_owner.entry(account_owner_pk)
+                            size_per_owner
+                                .entry(account_owner_pk)
                                 .and_modify(|e| *e += account_info.data.len() as u64)
                                 .or_insert(account_info.data.len() as u64);
                         }
@@ -161,16 +159,24 @@ fn start_tracking_account_consumer(
                             }
 
                             info!("Top accounts by size (total {}):", size_per_pubkey.len());
-                            let dump_started_at = Instant::now();
-                            for (pk, size) in size_per_pubkey.iter().sorted_by(|a, b| b.1.cmp(a.1)).take(10) {
+                            let _dump_started_at = Instant::now();
+                            for (pk, size) in size_per_pubkey
+                                .iter()
+                                .sorted_by(|a, b| b.1.cmp(a.1))
+                                .take(10)
+                            {
                                 let owner = owner_by_pubkey.get(pk).unwrap();
                                 info!("  {} (owner {}): {}", pk, owner, size);
-                            };
+                            }
 
                             info!("Top owners by size (total {}):", size_per_owner.len());
-                            for (owner, size) in size_per_owner.iter().sorted_by(|a, b| b.1.cmp(a.1)).take(10) {
+                            for (owner, size) in size_per_owner
+                                .iter()
+                                .sorted_by(|a, b| b.1.cmp(a.1))
+                                .take(10)
+                            {
                                 info!("  {}: {}", owner, size);
-                            };
+                            }
                         }
 
                         // info!(
@@ -202,8 +208,7 @@ fn is_blacklisted(pubkey: &str, owner: &str) -> bool {
     //     - PhoeNiXZ8ByJGLkxNfZRnkUfjvmuYqLR89jjFHGqdXY
     //     - LBUZKhRxPF3XUpBCjp4YzTKgLccjZhTSDM9YuVaPwxo  Meteora DLMM Program
     //     - 9xQeWvG816bUx9EPjHmaT23yvVM2ZWbrrpZb9PusVFin Serum DEX V3
-    let pubkey_blacklist = vec![
-    ];
+    let pubkey_blacklist = [];
     let owner_blacklist = vec![
         "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
         "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",
@@ -236,23 +241,40 @@ fn is_blacklisted(pubkey: &str, owner: &str) -> bool {
     let blacklisted_by_pubkey = pubkey_blacklist.contains(&pubkey);
     let blacklisted_by_owner = owner_blacklist.contains(&owner);
 
-    if owner_blacklist.contains(&pubkey) && owner != "BPFLoader2111111111111111111111111111111111" && owner != "BPFLoaderUpgradeab1e11111111111111111111111" {
+    if owner_blacklist.contains(&pubkey)
+        && owner != "BPFLoader2111111111111111111111111111111111"
+        && owner != "BPFLoaderUpgradeab1e11111111111111111111111"
+    {
         // this is an error in the blacklist definition
-        panic!("BLACKLIST key is NOT a pubkey - Account: {}, owner: {}", pubkey, owner);
+        panic!(
+            "BLACKLIST key is NOT a pubkey - Account: {}, owner: {}",
+            pubkey, owner
+        );
     }
 
     if pubkey_blacklist.contains(&owner) {
         // this is an error in the blacklist definition
-        panic!("BLACKLIST pubkey is NOT an owner - Account: {}, owner: {}", pubkey, owner);
+        panic!(
+            "BLACKLIST pubkey is NOT an owner - Account: {}, owner: {}",
+            pubkey, owner
+        );
     }
 
     if blacklisted_by_pubkey {
-        trace!("BLACKLISTED by pubkey - Account: {}, owner: {}", pubkey, owner);
+        trace!(
+            "BLACKLISTED by pubkey - Account: {}, owner: {}",
+            pubkey,
+            owner
+        );
         return true;
     }
 
     if blacklisted_by_owner {
-        trace!("BLACKLISTED by owner - Account: {}, owner: {}", pubkey, owner);
+        trace!(
+            "BLACKLISTED by owner - Account: {}, owner: {}",
+            pubkey,
+            owner
+        );
         return true;
     }
 
@@ -260,17 +282,19 @@ fn is_blacklisted(pubkey: &str, owner: &str) -> bool {
 }
 
 // don't include these well known accounts into analysis
-fn exclude_from_analysis(pubkey: &str, owner: &str) -> bool {
+fn _exclude_from_analysis(pubkey: &str, owner: &str) -> bool {
     const RAYDIUM_AMM_PUBKEY: &str = "675kPX9MHTjS2zt1qfr1NYHuzeLXfQM9H24wFSUt1Mp8";
 
-    let pubkey_lower = pubkey.to_ascii_lowercase();
+    let _pubkey_lower = pubkey.to_ascii_lowercase();
     let owner_lower = owner.to_ascii_lowercase();
 
     if owner_lower.contains("jup") || owner_lower.contains("jito") {
         return true;
     }
 
-    if owner == "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA" || owner == "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb" {
+    if owner == "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+        || owner == "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb"
+    {
         return true;
     }
 
@@ -298,4 +322,3 @@ fn all_accounts() -> SubscribeRequest {
         ..Default::default()
     }
 }
-

@@ -1,6 +1,6 @@
 use clap::Parser;
 use log::info;
-use solana_sdk::commitment_config::{CommitmentConfig, CommitmentLevel};
+use solana_commitment_config::{CommitmentConfig, CommitmentLevel};
 use std::collections::HashMap;
 use std::env;
 use std::str::FromStr;

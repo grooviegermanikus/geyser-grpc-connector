@@ -34,4 +34,4 @@ impl Debouncer {
 }
 
 #[allow(dead_code)]
-fn main() {}
+const fn main() {}

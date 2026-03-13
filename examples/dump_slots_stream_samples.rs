@@ -9,12 +9,12 @@
 ///
 /// we want to see if there is a difference in timing of "processed accounts" in the mix with slot vs "only processed accounts"
 use log::{info, warn};
-use solana_sdk::commitment_config::{CommitmentConfig, CommitmentLevel};
+use solana_commitment_config::{CommitmentConfig, CommitmentLevel};
+
+use solana_pubkey::Pubkey;
 use std::collections::HashMap;
 use std::env;
 use std::time::SystemTime;
-
-use solana_sdk::pubkey::Pubkey;
 
 use tokio::sync::broadcast;
 use tokio::sync::mpsc::Receiver;
@@ -141,10 +141,8 @@ fn start_account_same_level(
     });
 }
 
-fn map_slot_status(
-    slot_update: &SubscribeUpdateSlot,
-) -> solana_sdk::commitment_config::CommitmentLevel {
-    use solana_sdk::commitment_config::CommitmentLevel as solanaCL;
+fn map_slot_status(slot_update: &SubscribeUpdateSlot) -> solana_commitment_config::CommitmentLevel {
+    use solana_commitment_config::CommitmentLevel as solanaCL;
     use yellowstone_grpc_proto::geyser::CommitmentLevel as yCL;
     yellowstone_grpc_proto::geyser::CommitmentLevel::try_from(slot_update.status)
         .map(|v| match v {

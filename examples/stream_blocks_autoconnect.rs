@@ -1,6 +1,6 @@
 use log::info;
-use solana_sdk::clock::Slot;
-use solana_sdk::commitment_config::CommitmentConfig;
+use solana_clock::Slot;
+use solana_commitment_config::CommitmentConfig;
 use std::env;
 use tokio::sync::broadcast;
 

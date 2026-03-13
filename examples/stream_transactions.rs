@@ -4,27 +4,25 @@
 // ```
 //
 
-use log::{info, trace};
-use solana_account_decoder::parse_token::spl_token_ids;
-use solana_sdk::clock::{Slot, UnixTimestamp};
-use solana_sdk::pubkey::Pubkey;
-use std::collections::{HashMap, HashSet};
+use itertools::Itertools;
+use log::info;
+use solana_clock::Slot;
+use solana_commitment_config::CommitmentLevel;
+use std::collections::HashMap;
 use std::env;
-use std::str::FromStr;
 use std::sync::atomic::AtomicU64;
 use std::sync::Arc;
-use std::time::{Instant, SystemTime, UNIX_EPOCH};
-use itertools::Itertools;
-use solana_sdk::bs58;
-use solana_sdk::commitment_config::CommitmentLevel;
-use tokio::sync::mpsc::{Receiver, Sender};
+use tokio::sync::mpsc::Receiver;
 
 use geyser_grpc_connector::grpc_subscription_autoreconnect_tasks::create_geyser_autoconnection_task_with_mpsc;
 use geyser_grpc_connector::{GrpcConnectionTimeouts, GrpcSourceConfig, Message};
 use tokio::time::{sleep, Duration};
 use tonic::transport::ClientTlsConfig;
 use yellowstone_grpc_proto::geyser::subscribe_update::UpdateOneof;
-use yellowstone_grpc_proto::geyser::{SubscribeRequest, SubscribeRequestFilterAccounts, SubscribeRequestFilterAccountsFilter, SubscribeRequestFilterAccountsFilterMemcmp, SubscribeRequestFilterBlocksMeta, SubscribeRequestFilterSlots, SubscribeRequestFilterTransactions, SubscribeUpdateSlot};
+use yellowstone_grpc_proto::geyser::{
+    SubscribeRequest, SubscribeRequestFilterSlots, SubscribeRequestFilterTransactions,
+    SubscribeUpdateSlot,
+};
 
 type AtomicSlot = Arc<AtomicU64>;
 
@@ -55,7 +53,7 @@ pub async fn main() {
 
     let (autoconnect_tx, geyser_messages_rx) = tokio::sync::mpsc::channel(10);
     let (_exit_tx, exit_rx) = tokio::sync::broadcast::channel::<()>(1);
-    let (subscribe_filter_update_tx, mut _subscribe_filter_update_rx) =
+    let (_subscribe_filter_update_tx, mut _subscribe_filter_update_rx) =
         tokio::sync::mpsc::channel::<SubscribeRequest>(1);
 
     let _jh = create_geyser_autoconnection_task_with_mpsc(
@@ -85,51 +83,53 @@ fn start_tracking_account_consumer(
     _current_processed_slot: Arc<AtomicU64>,
 ) {
     tokio::spawn(async move {
-
         let mut processed_txs_per_block: HashMap<Slot, u64> = HashMap::new();
         let mut finalized_txs_per_block: HashMap<Slot, u64> = HashMap::new();
 
-        'stream_loop: loop {
+        '_stream_loop: loop {
             match geyser_messages_rx.recv().await {
-                Some(Message::GeyserSubscribeUpdate(update)) => {
-                    match update.update_oneof {
-                        Some(UpdateOneof::Transaction(update_tx)) => {
-                            let filters = update.filters.iter().map(|s| s.to_ascii_lowercase()).collect_vec();
-                            let is_processed = filters.contains(&"transaction_sub_processed".to_string());
-                            let is_finalized = filters.contains(&"transaction_sub_finalized".to_string());
-                            let slot = update_tx.slot;
-                            let tx_info = update_tx.transaction.unwrap();
-                            let tx_sig = bs58::encode(tx_info.signature).into_string();
+                Some(Message::GeyserSubscribeUpdate(update)) => match update.update_oneof {
+                    Some(UpdateOneof::Transaction(update_tx)) => {
+                        let filters = update
+                            .filters
+                            .iter()
+                            .map(|s| s.to_ascii_lowercase())
+                            .collect_vec();
+                        let is_processed =
+                            filters.contains(&"transaction_sub_processed".to_string());
+                        let is_finalized =
+                            filters.contains(&"transaction_sub_finalized".to_string());
+                        let slot = update_tx.slot;
+                        let tx_info = update_tx.transaction.unwrap();
+                        let _tx_sig = bs58::encode(tx_info.signature).into_string();
 
-                            if is_processed {
-                                processed_txs_per_block.entry(slot).and_modify(|c| *c += 1).or_insert(1);
-
-                            }
-                            if is_finalized {
-                            finalized_txs_per_block.entry(slot).and_modify(|c| *c += 1).or_insert(1);
-                            }
-
+                        if is_processed {
+                            processed_txs_per_block
+                                .entry(slot)
+                                .and_modify(|c| *c += 1)
+                                .or_insert(1);
                         }
-                        Some(UpdateOneof::Slot(update)) => {
-                            let slot_status = map_slot_status(&update);
-                            if slot_status == CommitmentLevel::Finalized {
-
-                                if let Some(count) = processed_txs_per_block.get(&update.slot) {
-                                    info!("Processed slot {} with {} txs", update.slot, count);
-                                }
-
-                                if let Some(count) = finalized_txs_per_block.get(&update.slot) {
-                                    info!("Finalized slot {} with {} txs", update.slot, count);
-                                }
-
-
-                            }
-
-
+                        if is_finalized {
+                            finalized_txs_per_block
+                                .entry(slot)
+                                .and_modify(|c| *c += 1)
+                                .or_insert(1);
                         }
-                        None => {}
-                        _ => {}
                     }
+                    Some(UpdateOneof::Slot(update)) => {
+                        let slot_status = map_slot_status(&update);
+                        if slot_status == CommitmentLevel::Finalized {
+                            if let Some(count) = processed_txs_per_block.get(&update.slot) {
+                                info!("Processed slot {} with {} txs", update.slot, count);
+                            }
+
+                            if let Some(count) = finalized_txs_per_block.get(&update.slot) {
+                                info!("Finalized slot {} with {} txs", update.slot, count);
+                            }
+                        }
+                    }
+                    None => {}
+                    _ => {}
                 },
                 None => {
                     log::warn!("multiplexer channel closed - aborting");
@@ -141,16 +141,15 @@ fn start_tracking_account_consumer(
     });
 }
 
-
 fn filter_transactions_processed() -> SubscribeRequest {
-
     let mut slot_subs = HashMap::new();
     slot_subs.insert(
         "slot_sub".to_string(),
         SubscribeRequestFilterSlots {
             filter_by_commitment: None,
             interslot_updates: None,
-        });
+        },
+    );
 
     let mut transactions_subs = HashMap::new();
 
@@ -166,7 +165,6 @@ fn filter_transactions_processed() -> SubscribeRequest {
         },
     );
 
-
     SubscribeRequest {
         slots: slot_subs,
         transactions: transactions_subs,
@@ -175,16 +173,15 @@ fn filter_transactions_processed() -> SubscribeRequest {
     }
 }
 
-
 fn filter_transactions_finalized() -> SubscribeRequest {
-
     let mut slot_subs = HashMap::new();
     slot_subs.insert(
         "slot_sub".to_string(),
         SubscribeRequestFilterSlots {
             filter_by_commitment: None,
             interslot_updates: None,
-        });
+        },
+    );
 
     let mut transactions_subs = HashMap::new();
 
@@ -200,7 +197,6 @@ fn filter_transactions_finalized() -> SubscribeRequest {
         },
     );
 
-
     SubscribeRequest {
         slots: slot_subs,
         transactions: transactions_subs,
@@ -209,11 +205,8 @@ fn filter_transactions_finalized() -> SubscribeRequest {
     }
 }
 
-
-fn map_slot_status(
-    slot_update: &SubscribeUpdateSlot,
-) -> solana_sdk::commitment_config::CommitmentLevel {
-    use solana_sdk::commitment_config::CommitmentLevel as solanaCL;
+fn map_slot_status(slot_update: &SubscribeUpdateSlot) -> solana_commitment_config::CommitmentLevel {
+    use solana_commitment_config::CommitmentLevel as solanaCL;
     use yellowstone_grpc_proto::geyser::CommitmentLevel as yCL;
     yellowstone_grpc_proto::geyser::CommitmentLevel::try_from(slot_update.status)
         .map(|v| match v {
@@ -223,4 +216,3 @@ fn map_slot_status(
         })
         .expect("valid commitment level")
 }
-
