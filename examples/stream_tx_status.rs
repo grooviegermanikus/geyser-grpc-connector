@@ -47,7 +47,7 @@ pub async fn main() {
 
     let tls_config = ClientTlsConfig::new().with_native_roots();
 
-    let green_config = GrpcSourceConfig::new(
+    let green_config = GrpcSourceConfig::new_compressed(
         grpc_addr_green,
         grpc_x_token_green,
         Some(tls_config.clone()),
