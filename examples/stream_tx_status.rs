@@ -13,8 +13,11 @@ use std::str::FromStr;
 use std::time::Duration;
 use tokio::sync::broadcast;
 use tonic::transport::ClientTlsConfig;
+use yellowstone_grpc_proto::convert_from;
+use yellowstone_grpc_proto::convert_to::create_transaction_error;
 use yellowstone_grpc_proto::geyser::subscribe_update::UpdateOneof;
 use yellowstone_grpc_proto::geyser::{SubscribeRequest, SubscribeRequestFilterTransactions};
+use yellowstone_grpc_proto::prelude::TransactionError;
 
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
@@ -78,7 +81,13 @@ pub async fn main() {
                 Some(UpdateOneof::TransactionStatus(msg)) => {
                     let sig = Signature::try_from(msg.signature.as_slice()).unwrap();
 
-                    info!("Received tx status: slot {}, tx: {:?}", msg.slot, sig);
+                    let tx_err: Option<solana_transaction::TransactionError> = convert_from::create_tx_error(msg.err.as_ref()).unwrap();
+                    let status_text = match tx_err {
+                        None => "success".to_string(),
+                        Some(tx_err) => format!("error: {:?}", tx_err),
+                    };
+
+                    info!("Received tx status at slot {} for tx: {:?} status: {}", msg.slot, sig, status_text);
                 }
                 Some(_) => {}
                 None => {}
